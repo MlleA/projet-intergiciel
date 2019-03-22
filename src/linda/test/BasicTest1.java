@@ -8,7 +8,7 @@ public class BasicTest1 {
                 
         final Linda linda = new linda.shm.CentralizedLinda();
         // final Linda linda = new linda.server.LindaClient("//localhost:4000/aaa");
-                
+  
         new Thread() {
             public void run() {
                 try {
