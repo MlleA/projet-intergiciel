@@ -62,15 +62,28 @@ public class CentralizedLinda implements Linda {
 	}
 
 	@Override
+	//Renvoie, extrayant, tous les tuples correspondant au motif (vide si aucun ne correspond)
 	public Collection<Tuple> takeAll(Tuple template) {
-		// TODO Auto-generated method stub
-		return null;
+		Collection<Tuple> collectionTuples = new LinkedList();
+		for(int i = 0 ; i < espacePartage.size(); i++) {
+			if ((espacePartage.get(i)).matches(template)){
+				collectionTuples.add(espacePartage.get(i));
+				espacePartage.remove(i);
+			}
+		}
+		return collectionTuples;
 	}
 
 	@Override
+	//Renvoie, sans extraire, tous les tuples correspondant au motif (vide si aucun ne correspond)
 	public Collection<Tuple> readAll(Tuple template) {
-		// TODO Auto-generated method stub
-		return null;
+		Collection<Tuple> collectionTuples = new LinkedList();
+		for(int i = 0 ; i < espacePartage.size(); i++) {
+			if ((espacePartage.get(i)).matches(template)){
+				collectionTuples.add(espacePartage.get(i));
+			}
+		}
+		return collectionTuples;
 	}
 
 	@Override
