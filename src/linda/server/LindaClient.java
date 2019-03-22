@@ -8,7 +8,7 @@ import linda.Tuple;
  * It implements the Linda interface and propagates everything to the server it is connected to.
  * */
 public class LindaClient implements Linda {
-	
+
     /** Initializes the Linda implementation.
      *  @param serverURI the URI of the server, e.g. "rmi://localhost:4000/LindaServer" or "//localhost:4000/LindaServer".
      */
