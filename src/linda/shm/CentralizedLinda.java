@@ -17,6 +17,7 @@ import linda.Tuple;
 
 /** Shared memory implementation of Linda. */
 public class CentralizedLinda implements Linda {
+	//Choix LinkedList vs ArrayList à justifier dans le compte rendu
 	LinkedList<Tuple> espacePartage = new LinkedList<Tuple>();
 	
 	static Semaphore semaphore = new Semaphore(10);
@@ -36,7 +37,7 @@ public class CentralizedLinda implements Linda {
 		t.addFirst(espacePartage);
 		
 		//Prévnir le callback qu'une écriture à eu lieu
-		//notify.all()
+		//notify.all() pour prévenir tous ceux en lock
 		for(AsynchronousCallback cbRead : this.cbRead) {
 			cbRead.call(t);
 		}
@@ -60,6 +61,7 @@ public class CentralizedLinda implements Linda {
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
+		//mutex.wait();
 		return null;
 	}
 
