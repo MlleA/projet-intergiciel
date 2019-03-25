@@ -23,9 +23,8 @@ import linda.Tuple;
 public class CentralizedLinda implements Linda {
 	//Choix LinkedList vs ArrayList à justifier dans le compte rendu
 	LinkedList<Tuple> espacePartage = new LinkedList<Tuple>();
-	
+
 	private Lock lock;
-	private Condition access;
 
 	//Première case du tableau = Template ; Deuxième case = eventMode
 	private Map<AsynchronousCallback, Object[]> cbRead;
@@ -35,7 +34,6 @@ public class CentralizedLinda implements Linda {
 		cbRead = new LinkedHashMap<AsynchronousCallback, Object[]>();
 		cbTake = new LinkedHashMap<AsynchronousCallback, Object[]>();
 		lock = new ReentrantLock();
-		access  = lock.newCondition();
 	}
 
 	@Override
@@ -61,7 +59,7 @@ public class CentralizedLinda implements Linda {
 				cbTake.getKey().call(t);
 			} 
 		}
-		
+
 		if (write) {
 			espacePartage.add(t);
 		}
@@ -76,19 +74,19 @@ public class CentralizedLinda implements Linda {
 	//Extrait de l'espace partagé un tuple correspondant au motif précisé en paramètre
 	public Tuple take(Tuple template) {
 		lock.lock();
-		
+
 		Tuple retour = tryTake(template);
 		while (retour == null) {
-			try {
-				synchronized (lock) {
-					lock.wait();
+			synchronized (lock) {
+				try {
+					lock.wait();			
+					retour = tryTake(template);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
 				}
-				retour = tryTake(template);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
 			}
 		}
-		
+
 		lock.unlock();
 		return retour;
 	}
@@ -98,11 +96,13 @@ public class CentralizedLinda implements Linda {
 	public Tuple read(Tuple template) {
 		Tuple retour = tryRead(template);
 		while (retour == null) {
-			try {
-				access.await();
-				retour = tryRead(template);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
+			synchronized(lock) { 
+				try {
+					lock.wait(); 
+					retour = tryRead(template);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
 			}
 		}
 		return retour;
@@ -217,7 +217,7 @@ public class CentralizedLinda implements Linda {
 		for(Map.Entry<AsynchronousCallback, Object[]> cb : cbTake.entrySet()) {
 			System.out.println(cb.getKey().toString());
 		}
-		
+
 		System.out.println("[FIN DEBUG] \n");
 
 	}
