@@ -37,10 +37,12 @@ public class CentralizedLinda implements Linda {
 		//notify.all() pour prévenir tous ceux en lock qu'une action à eu lieu
 		//Choix du prioritaire : read
 		for(Map.Entry<AsynchronousCallback, Tuple> cbRead : this.cbRead.entrySet()) {
-			cbRead.getKey().call(t);
+			if (t.matches(cbRead.getValue()))
+				cbRead.getKey().call(t);
 		}
 		for(Map.Entry<AsynchronousCallback, Tuple> cbTake : this.cbTake.entrySet()) {
-			cbTake.getKey().call(t);
+			if (t.matches(cbTake.getValue()))
+				cbTake.getKey().call(t);
 		}
 		notifyAll();
 	}
