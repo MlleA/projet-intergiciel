@@ -2,6 +2,7 @@ package linda.shm;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -21,8 +22,9 @@ public class CentralizedLinda implements Linda {
 	//Choix LinkedList vs ArrayList à justifier dans le compte rendu
 	LinkedList<Tuple> espacePartage = new LinkedList<Tuple>();
 
-	private Map<AsynchronousCallback, Tuple> cbRead = new LinkedHashMap<AsynchronousCallback, Tuple>();
-	private Map<AsynchronousCallback, Tuple> cbTake = new LinkedHashMap<AsynchronousCallback, Tuple>();
+	//Première case du tableau = Template ; Deuxième case = eventMode
+	private Map<AsynchronousCallback, Object[]> cbRead = new LinkedHashMap<AsynchronousCallback, Object[]>();
+	private Map<AsynchronousCallback, Object[]> cbTake = new LinkedHashMap<AsynchronousCallback, Object[]>();
 
 	public CentralizedLinda() {
 	}
@@ -31,18 +33,23 @@ public class CentralizedLinda implements Linda {
 	// Dépose le tuple dans l'espace partagé
 	public void write(Tuple t) {
 		// Plus rapide d'ajouter en premier avec une linked list
-		t.addFirst(espacePartage);
 
 		//Prévnir le callback qu'une écriture à eu lieu
 		//notify.all() pour prévenir tous ceux en lock qu'une action à eu lieu
 		//Choix du prioritaire : read
-		for(Map.Entry<AsynchronousCallback, Tuple> cbRead : this.cbRead.entrySet()) {
-			if (t.matches(cbRead.getValue()))
+		for(Map.Entry<AsynchronousCallback, Object[]> cbRead : this.cbRead.entrySet()) {
+			if (t.matches((Tuple) cbRead.getValue()[0])) {
+				if ((eventMode) cbRead.getValue()[1] == eventMode.READ)
+					t.addFirst(espacePartage);
 				cbRead.getKey().call(t);
+			}
 		}
-		for(Map.Entry<AsynchronousCallback, Tuple> cbTake : this.cbTake.entrySet()) {
-			if (t.matches(cbTake.getValue()))
+		for(Map.Entry<AsynchronousCallback, Object[]> cbTake : this.cbTake.entrySet()) {
+			if (t.matches((Tuple) cbTake.getValue()[0])) {
+				if ((eventMode) cbTake.getValue()[1] == eventMode.READ)
+					t.addFirst(espacePartage);
 				cbTake.getKey().call(t);
+			}
 		}
 		notifyAll();
 	}
@@ -138,7 +145,7 @@ public class CentralizedLinda implements Linda {
 		//IMMEDIATE : l'état courrant est considéré
 		if (timing == eventTiming.IMMEDIATE) {
 			if (mode == eventMode.TAKE) {
-				cbTake.put((AsynchronousCallback) callback, template);
+				cbTake.put((AsynchronousCallback) callback, new Object[] { template, mode });
 
 				Tuple tuple = new Tuple (tryTake(template));
 				if (tuple != null) {
@@ -146,7 +153,7 @@ public class CentralizedLinda implements Linda {
 				}
 			}
 			else if(mode == eventMode.READ) {
-				cbRead.put((AsynchronousCallback) callback, template);
+				cbRead.put((AsynchronousCallback) callback, new Object[] { template, mode });
 
 				Tuple tuple = new Tuple (tryRead(template));
 				if (tuple != null) {
@@ -157,10 +164,10 @@ public class CentralizedLinda implements Linda {
 		//FUTUR : l'état courrant n'est pas considéré, seuls les tuples ajoutés à présent le sont
 		else if (timing == eventTiming.FUTURE) {
 			if (mode == eventMode.TAKE) {
-				cbRead.put((AsynchronousCallback) callback, template);
+				cbRead.put((AsynchronousCallback) callback, new Object[] { template, mode });
 			} 
 			else if(mode == eventMode.READ) {
-				cbRead.put((AsynchronousCallback) callback, template);
+				cbRead.put((AsynchronousCallback) callback, new Object[] { template, mode });
 			}
 		}
 	}
@@ -177,12 +184,12 @@ public class CentralizedLinda implements Linda {
 
 		System.out.println("---- Callback enregistrés ---- \n");
 		System.out.println("Callback Read : \n");
-		for(Map.Entry<AsynchronousCallback, Tuple> cb : cbRead.entrySet()) {
+		for(Map.Entry<AsynchronousCallback, Object[]> cb : cbRead.entrySet()) {
 			System.out.println(cb.getKey().toString());
 		}
 
 		System.out.println("\n Callback Take : \n");
-		for(Map.Entry<AsynchronousCallback, Tuple> cb : cbTake.entrySet()) {
+		for(Map.Entry<AsynchronousCallback, Object[]> cb : cbTake.entrySet()) {
 			System.out.println(cb.getKey().toString());
 		}
 	}
