@@ -51,6 +51,7 @@ public class CentralizedLinda implements Linda {
 				cbTake.getKey().call(t);
 			}
 		}
+		//notify.all() pour prévenir tous ceux en wait() qu'une action à eu lieu
 		notifyAll();
 	}
 
@@ -126,13 +127,11 @@ public class CentralizedLinda implements Linda {
 	//Renvoie, sans extraire, tous les tuples correspondant au motif (vide si aucun ne correspond)
 	public Collection<Tuple> readAll(Tuple template) {
 		Collection<Tuple> collectionTuples = new LinkedList<Tuple>();
-
 		for(Tuple tuple : espacePartage) {
 			if (tuple.matches(template)){
 				collectionTuples.add(tuple);
 			}
 		}
-
 		return collectionTuples;
 	}
 
