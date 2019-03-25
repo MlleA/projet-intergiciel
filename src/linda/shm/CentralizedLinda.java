@@ -48,8 +48,7 @@ public class CentralizedLinda implements Linda {
 	@Override
 	//Extrait de l'espace partagé un tuple correspondant au motif précisé en paramètre
 	public Tuple take(Tuple template) {
-		Tuple retour = new Tuple();
-		retour = tryTake(template);
+		Tuple retour = tryTake(template);
 		while (retour != null) {
 			try {
 				wait();
@@ -64,8 +63,7 @@ public class CentralizedLinda implements Linda {
 	@Override
 	// Recherche (sans extraire) dans l'espace partagé un tuple correspondant au motif fourni en paramètre
 	public Tuple read(Tuple template) {
-		Tuple retour = new Tuple();
-		retour = tryRead(template);
+		Tuple retour = tryRead(template);
 		while (retour != null) {
 			try {
 				wait();
