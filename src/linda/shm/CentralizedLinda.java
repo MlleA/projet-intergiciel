@@ -8,7 +8,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import com.sun.corba.se.impl.orbutil.concurrent.Mutex;
 
@@ -21,17 +23,25 @@ import linda.Tuple;
 public class CentralizedLinda implements Linda {
 	//Choix LinkedList vs ArrayList à justifier dans le compte rendu
 	LinkedList<Tuple> espacePartage = new LinkedList<Tuple>();
+	
+	private Lock lock;
+	private Condition access;
 
 	//Première case du tableau = Template ; Deuxième case = eventMode
-	private Map<AsynchronousCallback, Object[]> cbRead = new LinkedHashMap<AsynchronousCallback, Object[]>();
-	private Map<AsynchronousCallback, Object[]> cbTake = new LinkedHashMap<AsynchronousCallback, Object[]>();
+	private Map<AsynchronousCallback, Object[]> cbRead;
+	private Map<AsynchronousCallback, Object[]> cbTake;
 
 	public CentralizedLinda() {
+		cbRead = new LinkedHashMap<AsynchronousCallback, Object[]>();
+		cbTake = new LinkedHashMap<AsynchronousCallback, Object[]>();
+		lock = new ReentrantLock();
+		access  = lock.newCondition();
 	}
 
 	@Override
 	// Dépose le tuple dans l'espace partagé
 	public void write(Tuple t) {
+		boolean write = true;
 		// Plus rapide d'ajouter en premier avec une linked list
 
 		//Prévnir le callback qu'une écriture à eu lieu
@@ -39,34 +49,46 @@ public class CentralizedLinda implements Linda {
 		//Choix du prioritaire : read
 		for(Map.Entry<AsynchronousCallback, Object[]> cbRead : this.cbRead.entrySet()) {
 			if (t.matches((Tuple) cbRead.getValue()[0])) {
-				if ((eventMode) cbRead.getValue()[1] == eventMode.READ)
-					t.addFirst(espacePartage);
+				if ((eventMode) cbRead.getValue()[1] == eventMode.TAKE)
+					write = false;
 				cbRead.getKey().call(t);
 			}
 		}
 		for(Map.Entry<AsynchronousCallback, Object[]> cbTake : this.cbTake.entrySet()) {
 			if (t.matches((Tuple) cbTake.getValue()[0])) {
-				if ((eventMode) cbTake.getValue()[1] == eventMode.READ)
-					t.addFirst(espacePartage);
+				if ((eventMode) cbTake.getValue()[1] == eventMode.TAKE)
+					write = false;
 				cbTake.getKey().call(t);
-			}
+			} 
 		}
+		
+		if (write) {
+			espacePartage.add(t);
+		}
+
 		//notify.all() pour prévenir tous ceux en wait() qu'une action à eu lieu
-		notifyAll();
+		synchronized(access) {
+			access.notifyAll();
+		}
 	}
 
 	@Override
 	//Extrait de l'espace partagé un tuple correspondant au motif précisé en paramètre
 	public Tuple take(Tuple template) {
+		lock.lock();
+		
 		Tuple retour = tryTake(template);
-		while (retour != null) {
+		while (retour == null) {
 			try {
-				wait();
+				access.await();
+				System.out.println("DEBLOQUER");
 				retour = tryTake(template);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
 		}
+		
+		lock.unlock();
 		return retour;
 	}
 
@@ -74,9 +96,9 @@ public class CentralizedLinda implements Linda {
 	// Recherche (sans extraire) dans l'espace partagé un tuple correspondant au motif fourni en paramètre
 	public Tuple read(Tuple template) {
 		Tuple retour = tryRead(template);
-		while (retour != null) {
+		while (retour == null) {
 			try {
-				wait();
+				access.await();
 				retour = tryRead(template);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
@@ -177,6 +199,7 @@ public class CentralizedLinda implements Linda {
 		System.out.println(prefix + " ");
 
 		System.out.println("---- Affiche l'ensemble de l'espace partagé ---- \n");
+		System.out.println("Taille de l'espace partagé : " + espacePartage.size());
 		for(Tuple tuple : espacePartage) {
 			System.out.println(tuple.toString());
 		}
