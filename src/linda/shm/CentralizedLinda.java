@@ -5,8 +5,7 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Semaphore;
-
-import javax.management.monitor.Monitor;
+import java.util.concurrent.locks.Lock;
 
 import com.sun.corba.se.impl.orbutil.concurrent.Mutex;
 
@@ -22,10 +21,11 @@ public class CentralizedLinda implements Linda {
 	
 	static Semaphore semaphore = new Semaphore(10);
 	//UTILISER LES MONITORS A LA PLACE DES SEMAPHORES
-	Mutex mutex = new Mutex() ;
+	//Mutex mutex = new Mutex() ;
+	Lock monitor;
 
     private List<AsynchronousCallback> cbRead = new ArrayList<AsynchronousCallback>();
-    private List<AsynchronousCallback> cbWrite = new ArrayList<AsynchronousCallback>();
+    private List<AsynchronousCallback> cbTake = new ArrayList<AsynchronousCallback>();
 	
 	public CentralizedLinda() {
 	}
@@ -37,12 +37,15 @@ public class CentralizedLinda implements Linda {
 		t.addFirst(espacePartage);
 		
 		//Prévnir le callback qu'une écriture à eu lieu
-		//notify.all() pour prévenir tous ceux en lock
+		//notify.all() pour prévenir tous ceux en lock qu'une action à eu lieu
+		//Choix du prioritaire : read
 		for(AsynchronousCallback cbRead : this.cbRead) {
 			cbRead.call(t);
+			monitor.notifyAll();
 		}
-		for(AsynchronousCallback cbWrite : this.cbWrite) {
+		for(AsynchronousCallback cbWrite : this.cbTake) {
 			cbWrite.call(t);
+			monitor.notifyAll();
 		}
 	}
 
@@ -50,19 +53,31 @@ public class CentralizedLinda implements Linda {
 	//Extrait de l'espace partagé un tuple correspondant au motif précisé en paramètre
 	public Tuple take(Tuple template) {
 		Tuple retour = new Tuple();
-		try {
-			semaphore.acquire();
-			//mutex.lock();
-			retour = tryTake(template);
-			//utiliser notify all si callback => permet de réveiller les processus et de les rebloquer ensuite si tuple non correspondant
-			//mutex.unlock();
-			semaphore.release();
-			return retour;
-		} catch (InterruptedException e) {
-			e.printStackTrace();
+		
+		monitor.lock();
+		retour = tryTake(template);
+		while (retour != null) {
+			try {
+				monitor.wait();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
 		}
-		//mutex.wait();
-		return null;
+		monitor.unlock();
+		return retour;
+		
+//		try {
+//			//semaphore.acquire();
+//			monitor.lock();
+//			retour = tryTake(template);
+//			//utiliser notify all si callback => permet de réveiller les processus et de les rebloquer ensuite si tuple non correspondant
+//			monitor.unlock();
+//			//semaphore.release();
+//			return retour;
+//		} catch (InterruptedException e) {
+//			e.printStackTrace();
+//		}
+		//monitor.wait();
 	}
 
 	@Override
@@ -70,15 +85,15 @@ public class CentralizedLinda implements Linda {
 	public Tuple read(Tuple template) {
 		try {
 			semaphore.acquire();
-			//mutex.lock();
+			//monitor.lock();
 			Tuple retour = tryRead(template);
 			semaphore.release();
-			//mutex.unlock();
+			//monitor.unlock();
 			return retour;
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
-		//mutex.wait();
+		//monitor.wait();
 		return null;
 	}
 
@@ -144,20 +159,20 @@ public class CentralizedLinda implements Linda {
 		if (timing == eventTiming.IMMEDIATE) {
 			if (mode == eventMode.TAKE) {
 				Tuple tuple = new Tuple (tryTake(template));
-				 //action callback
-			} 
+				cbTake.add((AsynchronousCallback) callback);
+			}
 			else if(mode == eventMode.READ) {
 				Tuple tuple = new Tuple (tryRead(template));
-				//action callback
+				cbRead.add((AsynchronousCallback) callback);
 			}
 		} 
 		//FUTUR : l'état courrant n'est pas considéré, seuls les tuples ajoutés à présent le sont
 		else if (timing == eventTiming.FUTURE) {
 			if (mode == eventMode.TAKE) {
-				 //action callback
+				cbTake.add((AsynchronousCallback) callback);
 			} 
 			else if(mode == eventMode.READ) {
-				//action callback
+				cbRead.add((AsynchronousCallback) callback);
 			}
 		}
 	}
@@ -178,8 +193,8 @@ public class CentralizedLinda implements Linda {
 				System.out.println(cb.toString());
 			}
 			
-			System.out.println("\n Callback Write : \n");
-			for(AsynchronousCallback cb : cbWrite) {
+			System.out.println("\n Callback Take : \n");
+			for(AsynchronousCallback cb : cbTake) {
 				System.out.println(cb.toString());
 			}
 	}
