@@ -67,8 +67,8 @@ public class CentralizedLinda implements Linda {
 		}
 
 		//notify.all() pour prévenir tous ceux en wait() qu'une action à eu lieu
-		synchronized(access) {
-			access.notifyAll();
+		synchronized(lock) {
+			lock.notifyAll();
 		}
 	}
 
@@ -80,8 +80,9 @@ public class CentralizedLinda implements Linda {
 		Tuple retour = tryTake(template);
 		while (retour == null) {
 			try {
-				access.await();
-				System.out.println("DEBLOQUER");
+				synchronized (lock) {
+					lock.wait();
+				}
 				retour = tryTake(template);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
@@ -195,6 +196,8 @@ public class CentralizedLinda implements Linda {
 
 	@Override
 	public void debug(String prefix) {
+		System.out.println("[DEBUT DEBUG] \n");
+
 		//Affiche le prefix donnant la ligne de debug
 		System.out.println(prefix + " ");
 
@@ -205,15 +208,18 @@ public class CentralizedLinda implements Linda {
 		}
 
 		System.out.println("---- Callback enregistrés ---- \n");
-		System.out.println("Callback Read : \n");
+		if (!cbRead.entrySet().isEmpty()) System.out.println("Callback Read : \n");
 		for(Map.Entry<AsynchronousCallback, Object[]> cb : cbRead.entrySet()) {
 			System.out.println(cb.getKey().toString());
 		}
 
-		System.out.println("\n Callback Take : \n");
+		if (!cbTake.entrySet().isEmpty()) System.out.println("\nCallback Take : \n");
 		for(Map.Entry<AsynchronousCallback, Object[]> cb : cbTake.entrySet()) {
 			System.out.println(cb.getKey().toString());
 		}
+		
+		System.out.println("[FIN DEBUG] \n");
+
 	}
 
 	// TO BE COMPLETED
