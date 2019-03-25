@@ -18,15 +18,10 @@ import linda.Tuple;
 public class CentralizedLinda implements Linda {
 	//Choix LinkedList vs ArrayList à justifier dans le compte rendu
 	LinkedList<Tuple> espacePartage = new LinkedList<Tuple>();
-	
-	static Semaphore semaphore = new Semaphore(10);
-	//UTILISER LES MONITORS A LA PLACE DES SEMAPHORES
-	//Mutex mutex = new Mutex() ;
-	Lock monitor;
 
-    private List<AsynchronousCallback> cbRead = new ArrayList<AsynchronousCallback>();
-    private List<AsynchronousCallback> cbTake = new ArrayList<AsynchronousCallback>();
-	
+	private List<AsynchronousCallback> cbRead = new ArrayList<AsynchronousCallback>();
+	private List<AsynchronousCallback> cbTake = new ArrayList<AsynchronousCallback>();
+
 	public CentralizedLinda() {
 	}
 
@@ -35,66 +30,49 @@ public class CentralizedLinda implements Linda {
 	public void write(Tuple t) {
 		// Plus rapide d'ajouter en premier avec une linked list
 		t.addFirst(espacePartage);
-		
+
 		//Prévnir le callback qu'une écriture à eu lieu
 		//notify.all() pour prévenir tous ceux en lock qu'une action à eu lieu
 		//Choix du prioritaire : read
 		for(AsynchronousCallback cbRead : this.cbRead) {
 			cbRead.call(t);
-			monitor.notifyAll();
 		}
 		for(AsynchronousCallback cbWrite : this.cbTake) {
 			cbWrite.call(t);
-			monitor.notifyAll();
 		}
+		notifyAll();
 	}
 
 	@Override
 	//Extrait de l'espace partagé un tuple correspondant au motif précisé en paramètre
 	public Tuple take(Tuple template) {
 		Tuple retour = new Tuple();
-		
-		monitor.lock();
 		retour = tryTake(template);
 		while (retour != null) {
 			try {
-				monitor.wait();
+				wait();
+				retour = tryTake(template);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
 		}
-		monitor.unlock();
 		return retour;
-		
-//		try {
-//			//semaphore.acquire();
-//			monitor.lock();
-//			retour = tryTake(template);
-//			//utiliser notify all si callback => permet de réveiller les processus et de les rebloquer ensuite si tuple non correspondant
-//			monitor.unlock();
-//			//semaphore.release();
-//			return retour;
-//		} catch (InterruptedException e) {
-//			e.printStackTrace();
-//		}
-		//monitor.wait();
 	}
 
 	@Override
 	// Recherche (sans extraire) dans l'espace partagé un tuple correspondant au motif fourni en paramètre
 	public Tuple read(Tuple template) {
-		try {
-			semaphore.acquire();
-			//monitor.lock();
-			Tuple retour = tryRead(template);
-			semaphore.release();
-			//monitor.unlock();
-			return retour;
-		} catch (InterruptedException e) {
-			e.printStackTrace();
+		Tuple retour = new Tuple();
+		retour = tryRead(template);
+		while (retour != null) {
+			try {
+				wait();
+				retour = tryRead(template);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
 		}
-		//monitor.wait();
-		return null;
+		return retour;
 	}
 
 	@Override
@@ -106,8 +84,8 @@ public class CentralizedLinda implements Linda {
 				espacePartage.remove(i);
 				return tuple;
 			}
-		 }
-		 return null;
+		}
+		return null;
 	}
 
 	@Override
@@ -152,24 +130,32 @@ public class CentralizedLinda implements Linda {
 	@Override
 	//S’abonner à l’existence/l’apparition d’un tuple correspondant au motif.
 	public void eventRegister(eventMode mode, eventTiming timing, Tuple template, Callback callback) {
-		
+
 		//callback.call() sera invoqué avec le tuple identifié. Le callback n’est déclenché qu’une fois, puis oublié.
-		
+
 		//IMMEDIATE : l'état courrant est considéré
 		if (timing == eventTiming.IMMEDIATE) {
 			if (mode == eventMode.TAKE) {
-				Tuple tuple = new Tuple (tryTake(template));
 				cbTake.add((AsynchronousCallback) callback);
+
+				Tuple tuple = new Tuple (tryTake(template));
+				if (tuple != null) {
+					((AsynchronousCallback) callback).call(tuple);
+				}
 			}
 			else if(mode == eventMode.READ) {
-				Tuple tuple = new Tuple (tryRead(template));
 				cbRead.add((AsynchronousCallback) callback);
+
+				Tuple tuple = new Tuple (tryRead(template));
+				if (tuple != null) {
+					((AsynchronousCallback) callback).call(tuple);
+				}
 			}
-		} 
+		}
 		//FUTUR : l'état courrant n'est pas considéré, seuls les tuples ajoutés à présent le sont
 		else if (timing == eventTiming.FUTURE) {
 			if (mode == eventMode.TAKE) {
-				cbTake.add((AsynchronousCallback) callback);
+				cbRead.add((AsynchronousCallback) callback);
 			} 
 			else if(mode == eventMode.READ) {
 				cbRead.add((AsynchronousCallback) callback);
@@ -181,22 +167,22 @@ public class CentralizedLinda implements Linda {
 	public void debug(String prefix) {
 		//Affiche le prefix donnant la ligne de debug
 		System.out.println(prefix + " ");
-		
+
 		System.out.println("---- Affiche l'ensemble de l'espace partagé ---- \n");
-			for(Tuple tuple : espacePartage) {
-				System.out.println(tuple.toString());
-			}
-		
+		for(Tuple tuple : espacePartage) {
+			System.out.println(tuple.toString());
+		}
+
 		System.out.println("---- Callback enregistrés ---- \n");
-			System.out.println("Callback Read : \n");
-			for(AsynchronousCallback cb : cbRead) {
-				System.out.println(cb.toString());
-			}
-			
-			System.out.println("\n Callback Take : \n");
-			for(AsynchronousCallback cb : cbTake) {
-				System.out.println(cb.toString());
-			}
+		System.out.println("Callback Read : \n");
+		for(AsynchronousCallback cb : cbRead) {
+			System.out.println(cb.toString());
+		}
+
+		System.out.println("\n Callback Take : \n");
+		for(AsynchronousCallback cb : cbTake) {
+			System.out.println(cb.toString());
+		}
 	}
 
 	// TO BE COMPLETED
