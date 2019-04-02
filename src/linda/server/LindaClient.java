@@ -4,8 +4,6 @@ import java.net.MalformedURLException;
 import java.rmi.Naming;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.Map;
@@ -15,15 +13,15 @@ import linda.AsynchronousCallback;
 import linda.Callback;
 import linda.Linda;
 import linda.Tuple;
-import linda.Linda.eventMode;
-import linda.Linda.eventTiming;
+
 
 /** Client part of a client/server implementation of Linda.
  * It implements the Linda interface and propagates everything to the server it is connected to.
  * */
 public class LindaClient implements Linda {
 
-	public LinkedList<Tuple> espacePartage;
+	private IEspacePartage objectEspacePartage;
+	private LinkedList<Tuple> espacePartage;
 
 	private Map<AsynchronousCallback, Object[]> cbRead;
 	private Map<AsynchronousCallback, Object[]> cbTake;
@@ -37,7 +35,8 @@ public class LindaClient implements Linda {
 	 * @throws MalformedURLException 
 	 */
 	public LindaClient(String serverURI) throws RemoteException, NotBoundException, MalformedURLException {
-		espacePartage = (LinkedList<Tuple>)Naming.lookup(serverURI);
+		objectEspacePartage = (IEspacePartage)Naming.lookup(serverURI);
+		espacePartage = objectEspacePartage.getEspacePartage();
 	}
 
 	@Override
