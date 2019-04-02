@@ -1,19 +1,11 @@
 package linda.shm;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-
-import com.sun.corba.se.impl.orbutil.concurrent.Mutex;
-
 import linda.AsynchronousCallback;
 import linda.Callback;
 import linda.Linda;
@@ -40,11 +32,7 @@ public class CentralizedLinda implements Linda {
 	// Dépose le tuple dans l'espace partagé
 	public void write(Tuple t) {
 		boolean write = true;
-		// Plus rapide d'ajouter en premier avec une linked list
-
-		//Prévnir le callback qu'une écriture à eu lieu
-		//notify.all() pour prévenir tous ceux en lock qu'une action à eu lieu
-		//Choix du prioritaire : read
+		
 		for(Map.Entry<AsynchronousCallback, Object[]> cbRead : this.cbRead.entrySet()) {
 			if (t.matches((Tuple) cbRead.getValue()[0])) {
 				if ((eventMode) cbRead.getValue()[1] == eventMode.TAKE)
