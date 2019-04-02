@@ -45,6 +45,7 @@ public class CentralizedLinda implements Linda {
 				if ((eventMode) cbTake.getValue()[1] == eventMode.TAKE)
 					write = false;
 				cbTake.getKey().call(t);
+				System.out.println("CALL 1");
 			} 
 		}
 
@@ -155,19 +156,19 @@ public class CentralizedLinda implements Linda {
 		//IMMEDIATE : l'état courrant est considéré
 		if (timing == eventTiming.IMMEDIATE) {
 			if (mode == eventMode.TAKE) {
-				cbTake.put((AsynchronousCallback) callback, new Object[] { template, mode });
+				cbTake.put(new AsynchronousCallback(callback), new Object[] { template, mode });
 
-				Tuple tuple = new Tuple (tryTake(template));
+				Tuple tuple = tryTake(template);
 				if (tuple != null) {
-					((AsynchronousCallback) callback).call(tuple);
+					(new AsynchronousCallback(callback)).call(tuple);
 				}
 			}
 			else if(mode == eventMode.READ) {
-				cbRead.put((AsynchronousCallback) callback, new Object[] { template, mode });
+				cbRead.put(new AsynchronousCallback(callback), new Object[] { template, mode });
 
-				Tuple tuple = new Tuple (tryRead(template));
+				Tuple tuple = tryRead(template);
 				if (tuple != null) {
-					((AsynchronousCallback) callback).call(tuple);
+					(new AsynchronousCallback(callback)).call(tuple);
 				}
 			}
 		}
@@ -184,29 +185,32 @@ public class CentralizedLinda implements Linda {
 
 	@Override
 	public void debug(String prefix) {
-		System.out.println("[DEBUT DEBUG] \n");
+		System.out.println(prefix + " [DEBUT DEBUG] \n");
 
-		//Affiche le prefix donnant la ligne de debug
-		System.out.println(prefix + " ");
-
-		System.out.println("---- Affiche l'ensemble de l'espace partagé ---- \n");
-		System.out.println("Taille de l'espace partagé : " + espacePartage.size());
+		System.out.println(prefix + " ---- Affiche l'ensemble de l'espace partagé ---- \n");
+		System.out.println(prefix + " Taille de l'espace partagé : " + espacePartage.size());
 		for(Tuple tuple : espacePartage) {
-			System.out.println(tuple.toString());
+			System.out.println(prefix + " " + tuple.toString());
 		}
 
-		System.out.println("---- Callback enregistrés ---- \n");
-		if (!cbRead.entrySet().isEmpty()) System.out.println("Callback Read : \n");
+		System.out.println(prefix + " ---- Callback enregistrés ---- \n");
+		if (!cbRead.entrySet().isEmpty()) System.out.println(prefix + " Callback Read : \n");
 		for(Map.Entry<AsynchronousCallback, Object[]> cb : cbRead.entrySet()) {
-			System.out.println(cb.getKey().toString());
+			Tuple template = (Tuple) cb.getValue()[0];
+			eventMode eventMode = (eventMode) cb.getValue()[1];
+			
+			System.out.println(prefix + " eventMode : " + eventMode.name() + " template : " + template.toString());
 		}
 
-		if (!cbTake.entrySet().isEmpty()) System.out.println("\nCallback Take : \n");
+		if (!cbTake.entrySet().isEmpty()) System.out.println("\n" + prefix + " Callback Take : \n");
 		for(Map.Entry<AsynchronousCallback, Object[]> cb : cbTake.entrySet()) {
-			System.out.println(cb.getKey().toString());
+			Tuple template = (Tuple) cb.getValue()[0];
+			eventMode eventMode = (eventMode) cb.getValue()[1];
+			
+			System.out.println(prefix + " eventMode : " + eventMode.name() + " template : " + template.toString());
 		}
 
-		System.out.println("[FIN DEBUG] \n");
+		System.out.println(prefix + " [FIN DEBUG] \n");
 
 	}
 
