@@ -31,10 +31,10 @@ public class Whiteboard extends Panel {
         WhiteboardPanel wp;
 		try {
 			wp = new WhiteboardPanel(this, new linda.server.LindaClient(serverURI));
-	        add("Center", wp);
+		    add("Center", wp);
 		} catch (RemoteException | MalformedURLException | NotBoundException e) {
 			e.printStackTrace();
-		}
+		}	    
         appFrame.setVisible(true);
 
     }
