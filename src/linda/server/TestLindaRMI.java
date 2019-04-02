@@ -10,7 +10,7 @@ public class TestLindaRMI {
 
     public static void main(String[] a) throws RemoteException, NotBoundException, MalformedURLException {
                 
-        final LindaClient linda = new LindaClient("rmi://localhost:4000/EspacePartage");
+        final LindaClient linda = new LindaClient("rmi://localhost:4000/LindaServer");
   
         new Thread() {
             public void run() {
@@ -26,7 +26,7 @@ public class TestLindaRMI {
             }
         }.start();
                 
-        new Thread() {
+       new Thread() {
             public void run() {
                 try {
                     Thread.sleep(1000);
