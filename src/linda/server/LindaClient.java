@@ -23,8 +23,12 @@ public class LindaClient implements Linda {
 	 * @throws NotBoundException 
 	 * @throws MalformedURLException 
 	 */
-	public LindaClient(String serverURI) throws RemoteException, NotBoundException, MalformedURLException {
-		lindaServer = (ILindaServer)Naming.lookup(serverURI);
+	public LindaClient(String serverURI) {
+		try {
+			lindaServer = (ILindaServer)Naming.lookup(serverURI);
+		} catch (RemoteException | MalformedURLException | NotBoundException e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Override

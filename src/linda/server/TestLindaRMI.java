@@ -8,8 +8,7 @@ import linda.*;
 
 public class TestLindaRMI {
 
-    public static void main(String[] a) throws RemoteException, NotBoundException, MalformedURLException {
-                
+    public static void main(String[] a) throws RemoteException, NotBoundException, MalformedURLException {                
         final LindaClient linda1 = new LindaClient("rmi://localhost:4000/LindaServer");
         final LindaClient linda2 = new LindaClient("rmi://localhost:4000/LindaServer");
   
