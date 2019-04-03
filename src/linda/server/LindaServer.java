@@ -13,7 +13,7 @@ import linda.Tuple;
 import linda.Linda.eventMode;
 import linda.Linda.eventTiming;
 
-public class LindaServer extends UnicastRemoteObject {
+public class LindaServer extends UnicastRemoteObject implements ILindaServer {
 
 	protected LindaServer() throws RemoteException {
 		centralizedLinda = new linda.shm.CentralizedLinda();
@@ -27,39 +27,48 @@ public class LindaServer extends UnicastRemoteObject {
 	    registry.bind("LindaServer",server);
 	}
 	
-	public void write(Tuple t) {
+	@Override
+	public void write(Tuple t) throws RemoteException{
 		centralizedLinda.write(t);
 	}
 	
-	public Tuple take(Tuple template) {
+	@Override
+	public Tuple take(Tuple template) throws RemoteException{
 		return centralizedLinda.take(template);
 	}
 	
-	public Tuple read(Tuple template) {
+	@Override
+	public Tuple read(Tuple template)throws RemoteException {
 		return centralizedLinda.read(template);
 	}
 	
-	public Tuple tryTake(Tuple template) {
+	@Override
+	public Tuple tryTake(Tuple template)throws RemoteException {
 		return centralizedLinda.tryTake(template);
 	}
 	
-	public Tuple tryRead(Tuple template) {
+	@Override
+	public Tuple tryRead(Tuple template)throws RemoteException {
 		return centralizedLinda.tryRead(template);
 	}
 	
-	public Collection<Tuple> takeAll(Tuple template) {
+	@Override
+	public Collection<Tuple> takeAll(Tuple template) throws RemoteException {
 		return centralizedLinda.takeAll(template);
 	}
 	
-	public Collection<Tuple> readAll(Tuple template) {
+	@Override
+	public Collection<Tuple> readAll(Tuple template) throws RemoteException {
 		return centralizedLinda.readAll(template);
 	}
 	
-	public void eventRegister(eventMode mode, eventTiming timing, Tuple template, Callback callback) {
+	@Override
+	public void eventRegister(eventMode mode, eventTiming timing, Tuple template, Callback callback) throws RemoteException {
 		centralizedLinda.eventRegister(mode, timing, template, callback);
 	}
 	
-	public void debug(String prefix) {
+	@Override
+	public void debug(String prefix) throws RemoteException {
 		centralizedLinda.debug(prefix);
 	}
 }

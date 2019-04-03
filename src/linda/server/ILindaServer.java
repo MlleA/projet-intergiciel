@@ -46,9 +46,6 @@ public interface ILindaServer extends Remote {
      */
     public Collection<Tuple> readAll(Tuple template) throws RemoteException;
 
-    public enum eventMode { READ, TAKE };
-    public enum eventTiming { IMMEDIATE, FUTURE };
-
     /** Registers a callback which will be called when a tuple matching the template appears.
      * If the mode is Take, the found tuple is removed from the tuplespace.
      * The callback is fired once. It may re-register itself if necessary.

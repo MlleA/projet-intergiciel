@@ -5,18 +5,9 @@ import java.rmi.Naming;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
-import linda.AsynchronousCallback;
 import linda.Callback;
 import linda.Linda;
 import linda.Tuple;
-import linda.Linda.eventMode;
-import linda.Linda.eventTiming;
 
 
 /** Client part of a client/server implementation of Linda.
@@ -24,13 +15,7 @@ import linda.Linda.eventTiming;
  * */
 public class LindaClient implements Linda {
 
-	private IEspacePartage objectEspacePartage;
-	private LinkedList<Tuple> espacePartage;
-
-	private Map<AsynchronousCallback, Object[]> cbRead;
-	private Map<AsynchronousCallback, Object[]> cbTake;
-
-	private Lock lock;
+	private ILindaServer lindaServer;
 
 	/** Initializes the Linda implementation.
 	 *  @param serverURI the URI of the server, e.g. "rmi://localhost:4000/LindaServer" or "//localhost:4000/LindaServer".
@@ -39,197 +24,102 @@ public class LindaClient implements Linda {
 	 * @throws MalformedURLException 
 	 */
 	public LindaClient(String serverURI) throws RemoteException, NotBoundException, MalformedURLException {
-		objectEspacePartage = (IEspacePartage)Naming.lookup(serverURI);
-		espacePartage = objectEspacePartage.getEspacePartage();
-		lock = new ReentrantLock();
-		cbRead = new LinkedHashMap<AsynchronousCallback, Object[]>();
-		cbTake = new LinkedHashMap<AsynchronousCallback, Object[]>();
+		lindaServer = (ILindaServer)Naming.lookup(serverURI);
 	}
 
 	@Override
 	// Dépose le tuple dans l'espace partagé
 	public void write(Tuple t) {
-		boolean write = true;
-		
-		for(Map.Entry<AsynchronousCallback, Object[]> cbRead : this.cbRead.entrySet()) {
-			if (t.matches((Tuple) cbRead.getValue()[0])) {
-				if ((eventMode) cbRead.getValue()[1] == eventMode.TAKE)
-					write = false;
-				cbRead.getKey().call(t);
-			}
-		}
-		for(Map.Entry<AsynchronousCallback, Object[]> cbTake : this.cbTake.entrySet()) {
-			if (t.matches((Tuple) cbTake.getValue()[0])) {
-				if ((eventMode) cbTake.getValue()[1] == eventMode.TAKE)
-					write = false;
-				cbTake.getKey().call(t);
-				System.out.println("CALL 1");
-			} 
-		}
-
-		if (write) {
-			espacePartage.add(t);
-		}
-
-		//notify.all() pour prévenir tous ceux en wait() qu'une action à eu lieu
-		synchronized(lock) {
-			lock.notifyAll();
+		try {
+			lindaServer.write(t);
+		} catch (RemoteException e) {
+			e.printStackTrace();
 		}
 	}
 
 	@Override
 	//Extrait de l'espace partagé un tuple correspondant au motif précisé en paramètre
 	public Tuple take(Tuple template) {
-		lock.lock();
-
-		Tuple retour = tryTake(template);
-		while (retour == null) {
-			synchronized (lock) {
-				try {
-					lock.wait();			
-					retour = tryTake(template);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-			}
+		try {
+			return lindaServer.take(template);
+		} catch (RemoteException e) {
+			e.printStackTrace();
+			return null;
 		}
-
-		lock.unlock();
-		return retour;
 	}
 
 	@Override
 	// Recherche (sans extraire) dans l'espace partagé un tuple correspondant au motif fourni en paramètre
 	public Tuple read(Tuple template) {
-		Tuple retour = tryRead(template);
-		while (retour == null) {
-			synchronized(lock) { 
-				try {
-					lock.wait(); 
-					retour = tryRead(template);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-			}
+		try {
+			return lindaServer.read(template);
+		} catch (RemoteException e) {
+			e.printStackTrace();
+			return null;
 		}
-		return retour;
 	}
 
 	@Override
 	//Version non bloquante de take
 	public Tuple tryTake(Tuple template) {
-		for(int i = 0 ; i < espacePartage.size(); i++) {
-			if ((espacePartage.get(i)).matches(template)){
-				Tuple tuple = espacePartage.get(i);
-				espacePartage.remove(i);
-				return tuple;
-			}
+		try {
+			return lindaServer.tryTake(template);
+		} catch (RemoteException e) {
+			e.printStackTrace();
+			return null;
 		}
-		return null;
 	}
 
 	@Override
 	//Version non bloquante de read
 	public Tuple tryRead(Tuple template) {
-		for(int i = 0 ; i < espacePartage.size(); i++) {
-			if ((espacePartage.get(i)).matches(template)){
-				Tuple tuple = espacePartage.get(i);
-				return tuple;
-			}
+		try {
+			return lindaServer.tryRead(template);
+		} catch (RemoteException e) {
+			e.printStackTrace();
+			return null;
 		}
-		return null;
 	}
 
 	@Override
 	//Renvoie, extrayant, tous les tuples correspondant au motif (vide si aucun ne correspond)
 	public Collection<Tuple> takeAll(Tuple template) {
-		Collection<Tuple> collectionTuples = new LinkedList<Tuple>();
-		for(int i = 0 ; i < espacePartage.size(); i++) {
-			if ((espacePartage.get(i)).matches(template)){
-				collectionTuples.add(espacePartage.get(i));
-				espacePartage.remove(i);
-			}
+		try {
+			return lindaServer.takeAll(template);
+		} catch (RemoteException e) {
+			e.printStackTrace();
+			return null;
 		}
-		return collectionTuples;
 	}
 
 	@Override
 	//Renvoie, sans extraire, tous les tuples correspondant au motif (vide si aucun ne correspond)
 	public Collection<Tuple> readAll(Tuple template) {
-		Collection<Tuple> collectionTuples = new LinkedList<Tuple>();
-		for(Tuple tuple : espacePartage) {
-			if (tuple.matches(template)){
-				collectionTuples.add(tuple);
-			}
+		try {
+			return lindaServer.readAll(template);
+		} catch (RemoteException e) {
+			e.printStackTrace();
+			return null;
 		}
-		return collectionTuples;
 	}
 
 	@Override
 	//S’abonner à l’existence/l’apparition d’un tuple correspondant au motif.
 	public void eventRegister(eventMode mode, eventTiming timing, Tuple template, Callback callback) {
-
-		//callback.call() sera invoqué avec le tuple identifié. Le callback n’est déclenché qu’une fois, puis oublié.
-
-		//IMMEDIATE : l'état courrant est considéré
-		if (timing == eventTiming.IMMEDIATE) {
-			if (mode == eventMode.TAKE) {
-				cbTake.put(new AsynchronousCallback(callback), new Object[] { template, mode });
-
-				Tuple tuple = tryTake(template);
-				if (tuple != null) {
-					(new AsynchronousCallback(callback)).call(tuple);
-				}
-			}
-			else if(mode == eventMode.READ) {
-				cbRead.put(new AsynchronousCallback(callback), new Object[] { template, mode });
-
-				Tuple tuple = tryRead(template);
-				if (tuple != null) {
-					(new AsynchronousCallback(callback)).call(tuple);
-				}
-			}
-		}
-		//FUTUR : l'état courrant n'est pas considéré, seuls les tuples ajoutés à présent le sont
-		else if (timing == eventTiming.FUTURE) {
-			if (mode == eventMode.TAKE) {
-				cbRead.put((AsynchronousCallback) callback, new Object[] { template, mode });
-			} 
-			else if(mode == eventMode.READ) {
-				cbRead.put((AsynchronousCallback) callback, new Object[] { template, mode });
-			}
+		try {
+			lindaServer.eventRegister(mode, timing, template, callback);
+		} catch (RemoteException e) {
+			e.printStackTrace();
 		}
 	}
 
 	@Override
 	public void debug(String prefix) {
-		System.out.println(prefix + " [DEBUT DEBUG] \n");
-
-		System.out.println(prefix + " ---- Affiche l'ensemble de l'espace partagé ---- \n");
-		System.out.println(prefix + " Taille de l'espace partagé : " + espacePartage.size());
-		for(Tuple tuple : espacePartage) {
-			System.out.println(prefix + " " + tuple.toString());
+		try {
+			lindaServer.debug(prefix);
+		} catch (RemoteException e) {
+			e.printStackTrace();
 		}
-
-		System.out.println(prefix + " ---- Callback enregistrés ---- \n");
-		if (!cbRead.entrySet().isEmpty()) System.out.println(prefix + " Callback Read : \n");
-		for(Map.Entry<AsynchronousCallback, Object[]> cb : cbRead.entrySet()) {
-			Tuple template = (Tuple) cb.getValue()[0];
-			eventMode eventMode = (eventMode) cb.getValue()[1];
-			
-			System.out.println(prefix + " eventMode : " + eventMode.name() + " template : " + template.toString());
-		}
-
-		if (!cbTake.entrySet().isEmpty()) System.out.println("\n" + prefix + " Callback Take : \n");
-		for(Map.Entry<AsynchronousCallback, Object[]> cb : cbTake.entrySet()) {
-			Tuple template = (Tuple) cb.getValue()[0];
-			eventMode eventMode = (eventMode) cb.getValue()[1];
-			
-			System.out.println(prefix + " eventMode : " + eventMode.name() + " template : " + template.toString());
-		}
-
-		System.out.println(prefix + " [FIN DEBUG] \n");
-
 	}
 
 }
