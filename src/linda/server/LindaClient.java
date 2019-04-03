@@ -111,7 +111,7 @@ public class LindaClient implements Linda {
 	//S’abonner à l’existence/l’apparition d’un tuple correspondant au motif.
 	public void eventRegister(eventMode mode, eventTiming timing, Tuple template, Callback callback) {
 		try {
-			lindaServer.eventRegister(mode, timing, template, callback);
+			lindaServer.eventRegister(mode, timing, template, new RemoteCallback(callback));
 		} catch (RemoteException e) {
 			e.printStackTrace();
 		}

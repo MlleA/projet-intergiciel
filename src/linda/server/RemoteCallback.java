@@ -4,13 +4,18 @@ import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 
 import linda.AsynchronousCallback;
+import linda.Callback;
 
 public class RemoteCallback extends UnicastRemoteObject implements IRemoteCallback {
 
-	private AsynchronousCallback asyncCallback;
+	private Callback callback;
 	
-	protected RemoteCallback(AsynchronousCallback acb) throws RemoteException {
-		asyncCallback = acb;
+	protected RemoteCallback(Callback acb) throws RemoteException {
+		callback = acb;
+	}
+	
+	public Callback getCallback() throws RemoteException {
+		return callback;
 	}
 
 }
