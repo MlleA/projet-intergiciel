@@ -10,6 +10,14 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.Collection;
 
+import javax.naming.InitialContext;
+
+import javax.jms.*;
+import javax.naming.*;
+
+import org.objectweb.joram.client.jms.Destination;
+import org.objectweb.joram.client.jms.Queue;
+
 import linda.Callback;
 import linda.Linda;
 import linda.Tuple;
@@ -37,12 +45,12 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 	
 	@Override
 	public Tuple take(Tuple template) throws RemoteException{
-		return centralizedLinda.take(template);
+		return centralizedLinda.tryTake(template);
 	}
 	
 	@Override
 	public Tuple read(Tuple template)throws RemoteException {
-		return centralizedLinda.read(template);
+		return centralizedLinda.tryRead(template);
 	}
 	
 	@Override
@@ -80,4 +88,48 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 	public void debug(String prefix) throws RemoteException {
 		centralizedLinda.debug(prefix);
 	}
+	
+	private void connectionToTopic() {
+		try {
+            InitialContext ic = new InitialContext ();
+
+            ConnectionFactory connectionFactory = (ConnectionFactory)ic.lookup("ConnFactory");
+            Destination destination = (Destination)ic.lookup("MonTopic");
+
+            System.out.println("Bound to ConnFactory and MonTopic");
+
+            ConnectionFactory connection = connectionFactory.createConnection();
+            connection.start();
+
+            System.out.println("Created connection");
+
+            System.out.println("Creating sessions: not transacted, auto ack");
+            Session sessionP = connection.createSession(false,Session.AUTO_ACKNOWLEDGE);
+            Session sessionS = connection.createSession(false,Session.AUTO_ACKNOWLEDGE);
+
+            MessageProducer producer = sessionP.createProducer(destination);
+            MessageConsumer consumer = sessionS.createConsumer(destination);
+
+            consumer.setMessageListener(new MessageListener() {
+                    public void onMessage(Message msg)  {
+                        try {
+                            TextMessage textmsg = (TextMessage)msg;
+                            System.out.println("I have received : " + textmsg.getText());
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
+                        
+                    }});
+
+            System.out.println("Ready");
+
+            TextMessage textmsg = sessionP.createTextMessage();
+            textmsg.setText("Hello World !!!");
+            producer.send(textmsg);
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return;
+        }
+    }
 }
