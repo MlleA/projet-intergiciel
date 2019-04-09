@@ -13,6 +13,7 @@ import java.util.Collection;
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.Destination;
+import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageListener;
@@ -29,54 +30,72 @@ import linda.Linda.eventTiming;
 
 public class LindaMultiServer extends UnicastRemoteObject implements ILindaServer {
 
-	protected LindaMultiServer() throws RemoteException {
+	private String name;
+	private static MessageProducer producerTopic;
+	private static MessageConsumer consumerTopic;
+	private static Session sessionPT;
+	private static Session sessionST;
+
+	protected LindaMultiServer(String name) throws RemoteException {
 		centralizedLinda = new linda.shm.CentralizedLinda();
+		this.name = name;
 	}
 
 	private static Linda centralizedLinda;
 
 	public static void main(String args[]) throws Exception {	
 		LindaServer server = new LindaServer();
-	    Registry registry = LocateRegistry.createRegistry(4000);
-	    registry.bind("LindaServer",server);
-	    connectionToTopic();
+		Registry registry = LocateRegistry.createRegistry(4000);
+		registry.bind("LindaServer",server);
+		connectionToTopic();
 	}
-	
+
 	@Override
 	public void write(Tuple t) throws RemoteException{
 		centralizedLinda.write(t);
 	}
-	
+
 	@Override
 	public Tuple take(Tuple template) throws RemoteException{
-		return centralizedLinda.tryTake(template);
+		Tuple tupleServeurCentral = centralizedLinda.tryTake(template);
+
+		if (tupleServeurCentral == null) {
+			TextMessage txtMsg;
+			try {
+				txtMsg = sessionPT.createTextMessage();
+				producerTopic.send(txtMsg);
+			} catch (JMSException e) {
+				e.printStackTrace();
+			}
+		}
+		return null;
 	}
-	
+
 	@Override
 	public Tuple read(Tuple template)throws RemoteException {
 		return centralizedLinda.tryRead(template);
 	}
-	
+
 	@Override
 	public Tuple tryTake(Tuple template)throws RemoteException {
 		return centralizedLinda.tryTake(template);
 	}
-	
+
 	@Override
 	public Tuple tryRead(Tuple template)throws RemoteException {
 		return centralizedLinda.tryRead(template);
 	}
-	
+
 	@Override
 	public Collection<Tuple> takeAll(Tuple template) throws RemoteException {
 		return centralizedLinda.takeAll(template);
 	}
-	
+
 	@Override
 	public Collection<Tuple> readAll(Tuple template) throws RemoteException {
 		return centralizedLinda.readAll(template);
 	}
-	
+
 	@Override
 	public void eventRegister(eventMode mode, eventTiming timing, Tuple template, String remoteCallback) throws RemoteException {	
 		IRemoteCallback rc;
@@ -87,41 +106,41 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 			e.printStackTrace();
 		}
 	}
-	
+
 	@Override
 	public void debug(String prefix) throws RemoteException {
 		centralizedLinda.debug(prefix);
 	}
-	
+
 	private static void connectionToTopic() {
 		try {
-            InitialContext ic = new InitialContext ();
+			InitialContext ic = new InitialContext ();
 
-            ConnectionFactory connectionFactory = (ConnectionFactory)ic.lookup("ConnFactory");
-            Destination destination = (Destination)ic.lookup("TopicGlobal");
+			ConnectionFactory connectionFactory = (ConnectionFactory)ic.lookup("ConnFactory");
+			Destination destination = (Destination)ic.lookup("TopicGlobal");
 
-            Connection connection = connectionFactory.createConnection();
-            connection.start();
+			Connection connection = connectionFactory.createConnection();
+			connection.start();
 
-            Session sessionP = connection.createSession(false,Session.AUTO_ACKNOWLEDGE);
-            Session sessionS = connection.createSession(false,Session.AUTO_ACKNOWLEDGE);
+			sessionPT = connection.createSession(false,Session.AUTO_ACKNOWLEDGE);
+			sessionST = connection.createSession(false,Session.AUTO_ACKNOWLEDGE);
 
-            MessageProducer producer = sessionP.createProducer(destination);
-            MessageConsumer consumer = sessionS.createConsumer(destination);
+			producerTopic = sessionPT.createProducer(destination);
+			consumerTopic = sessionST.createConsumer(destination);
 
-            consumer.setMessageListener(new MessageListener() {
-                    public void onMessage(Message msg)  {
-                        try {
-                            
-                        } catch (Exception ex) {
-                            ex.printStackTrace();
-                        }
-                        
-                    }});
+			consumerTopic.setMessageListener(new MessageListener() {
+				public void onMessage(Message msg)  {
+					try {
 
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            return;
-        }
-    }
+					} catch (Exception ex) {
+						ex.printStackTrace();
+					}
+
+				}});
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			return;
+		}
+	}
 }
