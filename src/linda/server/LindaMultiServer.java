@@ -10,13 +10,16 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.Collection;
 
+import javax.jms.Connection;
+import javax.jms.ConnectionFactory;
+import javax.jms.Destination;
+import javax.jms.Message;
+import javax.jms.MessageConsumer;
+import javax.jms.MessageListener;
+import javax.jms.MessageProducer;
+import javax.jms.Session;
+import javax.jms.TextMessage;
 import javax.naming.InitialContext;
-
-import javax.jms.*;
-import javax.naming.*;
-
-import org.objectweb.joram.client.jms.Destination;
-import org.objectweb.joram.client.jms.Queue;
 
 import linda.Callback;
 import linda.Linda;
@@ -98,7 +101,7 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 
             System.out.println("Bound to ConnFactory and MonTopic");
 
-            ConnectionFactory connection = connectionFactory.createConnection();
+            Connection connection = connectionFactory.createConnection();
             connection.start();
 
             System.out.println("Created connection");
