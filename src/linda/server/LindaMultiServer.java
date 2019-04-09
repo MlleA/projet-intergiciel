@@ -136,8 +136,20 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 			consumerTopic.setMessageListener(new MessageListener() {
 				public void onMessage(Message msg)  {
 					try {
-						//utiliser le msg
-						Tuple reception = centralizedLinda.tryRead((Tuple) msg);
+						TextMessage txt = (TextMessage) msg;
+						String[] tabSplit = txt.getText().split("::");
+						
+						String nom = tabSplit[0];
+						
+						Tuple template = linda.Tuple.valueOf(tabSplit[1]);
+						Tuple reception = centralizedLinda.tryRead(template);
+						
+						//Informer que l'on possède le tuple correspondant au motif recherché
+						if (reception != null) {
+							
+							
+
+						}
 					} catch (Exception ex) {
 						ex.printStackTrace();
 					}
@@ -149,4 +161,10 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 			return;
 		}
 	}
+	
+ 	private static void connectQueue() {
+
+ 	}
+	
+	
 }
