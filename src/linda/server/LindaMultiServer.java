@@ -65,6 +65,7 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 			TextMessage txtMsg;
 			try {
 				txtMsg = sessionPT.createTextMessage();
+				txtMsg.setText(name + "::" + template.toString());
 				producerTopic.send(txtMsg);
 			} catch (JMSException e) {
 				e.printStackTrace();
