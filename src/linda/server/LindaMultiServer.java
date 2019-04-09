@@ -39,6 +39,7 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 		LindaServer server = new LindaServer();
 	    Registry registry = LocateRegistry.createRegistry(4000);
 	    registry.bind("LindaServer",server);
+	    connectionToTopic();
 	}
 	
 	@Override
@@ -92,21 +93,16 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 		centralizedLinda.debug(prefix);
 	}
 	
-	private void connectionToTopic() {
+	private static void connectionToTopic() {
 		try {
             InitialContext ic = new InitialContext ();
 
             ConnectionFactory connectionFactory = (ConnectionFactory)ic.lookup("ConnFactory");
-            Destination destination = (Destination)ic.lookup("MonTopic");
-
-            System.out.println("Bound to ConnFactory and MonTopic");
+            Destination destination = (Destination)ic.lookup("TopicGlobal");
 
             Connection connection = connectionFactory.createConnection();
             connection.start();
 
-            System.out.println("Created connection");
-
-            System.out.println("Creating sessions: not transacted, auto ack");
             Session sessionP = connection.createSession(false,Session.AUTO_ACKNOWLEDGE);
             Session sessionS = connection.createSession(false,Session.AUTO_ACKNOWLEDGE);
 
@@ -116,19 +112,12 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
             consumer.setMessageListener(new MessageListener() {
                     public void onMessage(Message msg)  {
                         try {
-                            TextMessage textmsg = (TextMessage)msg;
-                            System.out.println("I have received : " + textmsg.getText());
+                            
                         } catch (Exception ex) {
                             ex.printStackTrace();
                         }
                         
                     }});
-
-            System.out.println("Ready");
-
-            TextMessage textmsg = sessionP.createTextMessage();
-            textmsg.setText("Hello World !!!");
-            producer.send(textmsg);
 
         } catch (Exception ex) {
             ex.printStackTrace();
