@@ -14,7 +14,7 @@ import linda.Tuple;
 /** Shared memory implementation of Linda. */
 public class CentralizedLinda implements Linda {
 	//Choix LinkedList vs ArrayList à justifier dans le compte rendu
-	LinkedList<Tuple> espacePartage = new LinkedList<Tuple>();
+	private LinkedList<Tuple> espacePartage;
 
 	private Lock lock;
 
@@ -23,6 +23,7 @@ public class CentralizedLinda implements Linda {
 	private Map<AsynchronousCallback, Object[]> cbTake;
 
 	public CentralizedLinda() {
+		espacePartage = new LinkedList<Tuple>();
 		cbRead = new LinkedHashMap<AsynchronousCallback, Object[]>();
 		cbTake = new LinkedHashMap<AsynchronousCallback, Object[]>();
 		lock = new ReentrantLock();
@@ -45,7 +46,6 @@ public class CentralizedLinda implements Linda {
 				if ((eventMode) cbTake.getValue()[1] == eventMode.TAKE)
 					write = false;
 				cbTake.getKey().call(t);
-				System.out.println("CALL 1");
 			} 
 		}
 
@@ -175,10 +175,10 @@ public class CentralizedLinda implements Linda {
 		//FUTUR : l'état courrant n'est pas considéré, seuls les tuples ajoutés à présent le sont
 		else if (timing == eventTiming.FUTURE) {
 			if (mode == eventMode.TAKE) {
-				cbRead.put((AsynchronousCallback) callback, new Object[] { template, mode });
+				cbRead.put(new AsynchronousCallback(callback), new Object[] { template, mode });
 			} 
 			else if(mode == eventMode.READ) {
-				cbRead.put((AsynchronousCallback) callback, new Object[] { template, mode });
+				cbRead.put(new AsynchronousCallback(callback), new Object[] { template, mode });
 			}
 		}
 	}

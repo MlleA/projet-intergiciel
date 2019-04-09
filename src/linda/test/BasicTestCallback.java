@@ -4,6 +4,7 @@ package linda.test;
 import linda.*;
 import linda.Linda.eventMode;
 import linda.Linda.eventTiming;
+import linda.server.LindaClient;
 
 public class BasicTestCallback {
 
@@ -23,8 +24,8 @@ public class BasicTestCallback {
     }
 
     public static void main(String[] a) {
-        linda = new linda.shm.CentralizedLinda();
-        //linda.Linda linda = new linda.linda.server.LindaClient("//localhost:4000/MonServeur");
+        //linda = new linda.shm.CentralizedLinda();
+        linda = new LindaClient("//localhost:4000/LindaServer");
 
         cbmotif = new Tuple(Integer.class, String.class);
         linda.eventRegister(eventMode.TAKE, eventTiming.IMMEDIATE, cbmotif, new MyCallback());

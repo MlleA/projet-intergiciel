@@ -1,9 +1,12 @@
 package linda.server;
 
 import java.net.MalformedURLException;
+import java.rmi.AlreadyBoundException;
 import java.rmi.Naming;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 import java.util.Collection;
 import linda.Callback;
 import linda.Linda;
@@ -16,6 +19,7 @@ import linda.Tuple;
 public class LindaClient implements Linda {
 
 	private ILindaServer lindaServer;
+	private Registry registry;
 
 	/** Initializes the Linda implementation.
 	 *  @param serverURI the URI of the server, e.g. "rmi://localhost:4000/LindaServer" or "//localhost:4000/LindaServer".
@@ -25,6 +29,7 @@ public class LindaClient implements Linda {
 	 */
 	public LindaClient(String serverURI) {
 		try {
+			registry = LocateRegistry.createRegistry(4001);
 			lindaServer = (ILindaServer)Naming.lookup(serverURI);
 		} catch (RemoteException | MalformedURLException | NotBoundException e) {
 			e.printStackTrace();
@@ -111,8 +116,10 @@ public class LindaClient implements Linda {
 	//S’abonner à l’existence/l’apparition d’un tuple correspondant au motif.
 	public void eventRegister(eventMode mode, eventTiming timing, Tuple template, Callback callback) {
 		try {
-			lindaServer.eventRegister(mode, timing, template, new RemoteCallback(callback));
-		} catch (RemoteException e) {
+			String nomCallback = "Callback" + Math.random();
+			registry.bind(nomCallback, new RemoteCallback(callback));
+			lindaServer.eventRegister(mode, timing, template, "rmi://localhost:4001/" + nomCallback);
+		} catch (RemoteException | AlreadyBoundException e) {
 			e.printStackTrace();
 		}
 	}

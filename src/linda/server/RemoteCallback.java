@@ -5,6 +5,7 @@ import java.rmi.server.UnicastRemoteObject;
 
 import linda.AsynchronousCallback;
 import linda.Callback;
+import linda.Tuple;
 
 public class RemoteCallback extends UnicastRemoteObject implements IRemoteCallback {
 
@@ -14,8 +15,8 @@ public class RemoteCallback extends UnicastRemoteObject implements IRemoteCallba
 		callback = acb;
 	}
 	
-	public Callback getCallback() throws RemoteException {
-		return callback;
+	public void call(final Tuple t) throws RemoteException {
+		callback.call(t);
 	}
 
 }

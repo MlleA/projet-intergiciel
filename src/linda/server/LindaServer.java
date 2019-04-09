@@ -1,5 +1,8 @@
 package linda.server;
 
+import java.net.MalformedURLException;
+import java.rmi.Naming;
+import java.rmi.NotBoundException;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -63,8 +66,14 @@ public class LindaServer extends UnicastRemoteObject implements ILindaServer {
 	}
 	
 	@Override
-	public void eventRegister(eventMode mode, eventTiming timing, Tuple template, IRemoteCallback callback) throws RemoteException {		
-		centralizedLinda.eventRegister(mode, timing, template, callback.getCallback());
+	public void eventRegister(eventMode mode, eventTiming timing, Tuple template, String remoteCallback) throws RemoteException {	
+		IRemoteCallback rc;
+		try {
+			rc = (IRemoteCallback)Naming.lookup(remoteCallback);
+			centralizedLinda.eventRegister(mode, timing, template, new RemoteCallbackToCallback(rc));
+		} catch (MalformedURLException | NotBoundException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	@Override
