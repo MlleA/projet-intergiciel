@@ -57,8 +57,10 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 
 	@Override
 	public Tuple take(Tuple template) throws RemoteException{
+		//Recherche locale du tuple correspondant au template
 		Tuple tupleServeurCentral = centralizedLinda.tryTake(template);
 
+		//Envoie sur le topic du template demandé
 		if (tupleServeurCentral == null) {
 			TextMessage txtMsg;
 			try {
@@ -74,6 +76,8 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 	@Override
 	public Tuple read(Tuple template)throws RemoteException {
 		return centralizedLinda.tryRead(template);
+		
+		//if()
 	}
 
 	@Override
@@ -127,11 +131,13 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 
 			producerTopic = sessionPT.createProducer(destination);
 			consumerTopic = sessionST.createConsumer(destination);
-
+		
+			//lecture d'un message sur le topic
 			consumerTopic.setMessageListener(new MessageListener() {
 				public void onMessage(Message msg)  {
 					try {
-
+						//utiliser le msg
+						Tuple reception = centralizedLinda.tryRead((Tuple) msg);
 					} catch (Exception ex) {
 						ex.printStackTrace();
 					}
