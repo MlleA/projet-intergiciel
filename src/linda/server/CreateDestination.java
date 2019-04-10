@@ -1,11 +1,8 @@
 package linda.server;
 
-import org.objectweb.joram.client.jms.Destination;
-import org.objectweb.joram.client.jms.Queue;
-import org.objectweb.joram.client.jms.Topic;
-import org.objectweb.joram.client.jms.admin.AdminModule;
-import org.objectweb.joram.client.jms.admin.User;
-import org.objectweb.joram.client.jms.tcp.TcpConnectionFactory;
+import org.objectweb.joram.client.jms.admin.*;
+import org.objectweb.joram.client.jms.*;
+import org.objectweb.joram.client.jms.tcp.*;
 
 public class CreateDestination {
 	public static void main(String args[]) throws Exception {

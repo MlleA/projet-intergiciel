@@ -9,6 +9,8 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
@@ -21,6 +23,7 @@ import javax.jms.MessageProducer;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 import javax.naming.InitialContext;
+import javax.naming.NamingException;
 
 import linda.Callback;
 import linda.Linda;
@@ -30,24 +33,31 @@ import linda.Linda.eventTiming;
 
 public class LindaMultiServer extends UnicastRemoteObject implements ILindaServer {
 
-	private String name;
-	private static MessageProducer producerTopic;
-	private static MessageConsumer consumerTopic;
-	private static Session sessionPT;
-	private static Session sessionST;
+	private static String name;
+	private  MessageProducer producerTopic;
+	private  MessageConsumer consumerTopic;
+	private  Session sessionPT;
+	private  Session sessionST;
+	private  InitialContext ic;
+	private  Connection connection;
+	private  Map<Integer, Tuple> demandes;
+	private  Map<Integer, Tuple> reponses;
 
-	protected LindaMultiServer(String name) throws RemoteException {
+	protected LindaMultiServer(String myName) throws RemoteException {
 		centralizedLinda = new linda.shm.CentralizedLinda();
-		this.name = name;
+		name = myName;
+		demandes = new LinkedHashMap<Integer, Tuple>();
+		reponses = new LinkedHashMap<Integer, Tuple>();
+		connectionToDestinations();
 	}
 
-	private static Linda centralizedLinda;
+	private Linda centralizedLinda;
 
 	public static void main(String args[]) throws Exception {	
-		LindaServer server = new LindaServer();
+		LindaMultiServer server = new LindaMultiServer(args[1]);
 		Registry registry = LocateRegistry.createRegistry(4000);
 		registry.bind("LindaServer",server);
-		connectionToTopic();
+		System.out.println("TEST " + name);
 	}
 
 	@Override
@@ -64,20 +74,32 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 		if (tupleServeurCentral == null) {
 			TextMessage txtMsg;
 			try {
+				Integer nbDemande = (int) Math.random();
+				demandes.put(nbDemande, template);
+
 				txtMsg = sessionPT.createTextMessage();
-				txtMsg.setText(name + "::" + template.toString());
+				txtMsg.setText(name + "::" + nbDemande + "::" + template.toString() + "::TAKE");
 				producerTopic.send(txtMsg);
+				
+				//attente de la réponse d'un des autres serveurs
+				Tuple result = null;
+				do {
+					result = reponses.get(nbDemande);
+				} while (result == null);
+				
+				return result;
 			} catch (JMSException e) {
 				e.printStackTrace();
+				return null;
 			}
-		}
-		return null;
+		} else 
+			return tupleServeurCentral;
 	}
 
 	@Override
 	public Tuple read(Tuple template)throws RemoteException {
 		return centralizedLinda.tryRead(template);
-		
+
 		//if()
 	}
 
@@ -117,14 +139,68 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 		centralizedLinda.debug(prefix);
 	}
 
-	private static void connectionToTopic() {
+
+	private  class ReadTopicListener implements MessageListener {
+		public void onMessage(Message msg)  {
+			try {
+				TextMessage txt = (TextMessage) msg;
+				String[] tabSplit = txt.getText().split("::");
+
+				String nom = tabSplit[0];
+				int nbDemande = Integer.parseInt(tabSplit[1]);
+				Tuple template = linda.Tuple.valueOf(tabSplit[2]);
+				String method = tabSplit[3];
+
+				Tuple reception = null;
+				if (method.equals("TAKE"))
+					reception = centralizedLinda.tryTake(template);
+				else
+					reception = centralizedLinda.tryRead(template);
+
+				//Informer que l'on possède le tuple correspondant au motif recherché
+				if (reception != null) {
+					responseToServer(nom, reception, nbDemande, method);
+				}
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		}
+	}
+
+	private  class ReadQueueListener implements MessageListener {
+		public void onMessage(Message msg)  {
+			try {
+				TextMessage txt = (TextMessage) msg;
+				String[] tabSplit = txt.getText().split("::");
+
+				String nom = tabSplit[0];
+				Integer nbDemande = Integer.parseInt(tabSplit[1]);
+				Tuple tuple = linda.Tuple.valueOf(tabSplit[2]);
+				String method = tabSplit[3];
+
+				//On reçoit une réponse mais la demande est déjà clôturée
+				if (demandes.get(nbDemande) == null && method.equals("TAKE")) {
+					//Si la méthode est Take le serveur répondant a supprimé
+					//inutilement le tuple donc on le recrée
+					write(tuple);
+				}
+
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+
+		}
+	}
+
+	private  void connectionToDestinations() {
 		try {
-			InitialContext ic = new InitialContext ();
+			ic = new InitialContext ();
 
 			ConnectionFactory connectionFactory = (ConnectionFactory)ic.lookup("ConnFactory");
+			//Connexion au Topic global
 			Destination destination = (Destination)ic.lookup("TopicGlobal");
 
-			Connection connection = connectionFactory.createConnection();
+			connection = connectionFactory.createConnection();
 			connection.start();
 
 			sessionPT = connection.createSession(false,Session.AUTO_ACKNOWLEDGE);
@@ -132,40 +208,38 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 
 			producerTopic = sessionPT.createProducer(destination);
 			consumerTopic = sessionST.createConsumer(destination);
-		
+
 			//lecture d'un message sur le topic
-			consumerTopic.setMessageListener(new MessageListener() {
-				public void onMessage(Message msg)  {
-					try {
-						TextMessage txt = (TextMessage) msg;
-						String[] tabSplit = txt.getText().split("::");
-						
-						String nom = tabSplit[0];
-						
-						Tuple template = linda.Tuple.valueOf(tabSplit[1]);
-						Tuple reception = centralizedLinda.tryRead(template);
-						
-						//Informer que l'on possède le tuple correspondant au motif recherché
-						if (reception != null) {
-							
-							
+			consumerTopic.setMessageListener(new ReadTopicListener());
+			
+			//ecoute sur sa queue
+			Destination destination_privee = (Destination)ic.lookup(name);
 
-						}
-					} catch (Exception ex) {
-						ex.printStackTrace();
-					}
-
-				}});
+            Session sessionCPrivée = connection.createSession(false,Session.AUTO_ACKNOWLEDGE);
+            MessageConsumer consumerPrivé = sessionCPrivée.createConsumer(destination_privee);
+            consumerPrivé.setMessageListener(new ReadQueueListener());
 
 		} catch (Exception ex) {
 			ex.printStackTrace();
 			return;
 		}
 	}
-	
- 	private static void connectQueue() {
 
- 	}
-	
-	
+	private  void responseToServer(String nameServer, Tuple reception, int nbDemande, String method) {
+		Destination queueServerDest;
+		try {
+			//Envoie du tuple correspondant trouvé au serveur demandant
+			queueServerDest = (Destination)ic.lookup(nameServer);
+			Session sessionP = connection.createSession(false,Session.AUTO_ACKNOWLEDGE);
+			MessageProducer producer = sessionP.createProducer(queueServerDest);
+
+			TextMessage message = sessionP.createTextMessage();
+			message.setText(name + "::" + nbDemande + "::" + reception.toString() + "::" + method);
+			producer.send(message);
+		} catch (NamingException | JMSException e) {
+			e.printStackTrace();
+		}
+	}
+
+
 }
