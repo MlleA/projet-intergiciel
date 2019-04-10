@@ -3,28 +3,21 @@
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="/Users/Alice/Linux/TP-JMS/TP-JMS/joram/ship/lib/jms.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/jms.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/joram-client.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/soap.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/ow_monolog.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/midpapi.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/mail.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/kxml.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/jta.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/joram-shared.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/joram-raconfig.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/joram-mom.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/joram-kclient.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/joram-gui.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/joram-connector.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/joram-config.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/jndi.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/jmxtools.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/jmxri.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/jgroups-all.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/JCup.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/jakarta-regexp-1.2.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/commons-logging-api.jar"/>
-	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/activation.jar"/>
+	<classpathentry kind="lib" path="/Users/Alice/Linux/TP-JMS/TP-JMS/joram/ship/lib/joram-client.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
+	<classpathentry kind="lib" path="/Users/Alice/Linux/junit5/assertj-db-1.2.0.jar"/>
+	<classpathentry kind="lib" path="/Users/Alice/Linux/junit5/assertj-guava-3.2.1.jar"/>
+	<classpathentry kind="lib" path="/Users/Alice/Linux/junit5/byte-buddy-agent-1.9.10.jar"/>
+	<classpathentry kind="lib" path="/Users/Alice/Linux/junit5/junit-jupiter-api-5.5.0-M1.jar"/>
+	<classpathentry kind="lib" path="/Users/Alice/Linux/junit5/junit-platform-commons-1.5.0-M1.jar"/>
+	<classpathentry kind="lib" path="/Users/Alice/Linux/junit5/junit5-1.26.97.jar"/>
+	<classpathentry kind="lib" path="/Users/Alice/Linux/junit5/objenesis-2.6.jar"/>
+	<classpathentry kind="lib" path="/Users/Alice/Linux/junit5/apiguardian-api-1.0.0.jar"/>
+	<classpathentry kind="lib" path="/Users/Alice/Linux/junit5/byte-buddy-1.9.10.jar"/>
+	<classpathentry kind="lib" path="/Users/Alice/Linux/junit5/mockito-core-2.26.0.jar"/>
+	<classpathentry kind="lib" path="/Users/Alice/Linux/junit5/mockito-kotlin-1.6.0.jar"/>
+	<classpathentry kind="lib" path="/Users/Alice/Linux/junit5/opentest4j-1.1.1.jar"/>
+	<classpathentry kind="lib" path="/Users/Alice/Linux/junit5/assertj-core-3.12.2.jar"/>
+	<classpathentry kind="lib" path="/Users/Alice/Linux/junit5/common-1.26.97.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
