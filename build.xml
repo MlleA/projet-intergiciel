@@ -98,7 +98,27 @@
   <!-- Setup the CreateDestination administration -->
   <target name="create_destination" depends="init"
           description="--> Runs CreateDestination administration">
-    <java classname="irc.CreateDestination"
+    <java classname="linda.server.CreateDestination"
+      failonerror="no" fork="yes"
+      dir="${run.dir}">
+      <classpath path="${project.class.path}"/> 
+    </java>
+  </target>
+
+  <!-- Setup the LindaMultiServer administration -->
+  <target name="linda_server" depends="init"
+          description="--> Runs CreateDestination administration">
+    <java classname="linda.server.LindaMultiServer"
+      failonerror="no" fork="yes"
+      dir="${run.dir}">
+      <classpath path="${project.class.path}"/> 
+    </java>
+  </target>
+
+  <!-- Setup the TestMultiServer1 administration -->
+  <target name="test1" depends="init"
+          description="--> Runs CreateDestination administration">
+    <java classname="linda.test.TestMultiServer1"
       failonerror="no" fork="yes"
       dir="${run.dir}">
       <classpath path="${project.class.path}"/> 

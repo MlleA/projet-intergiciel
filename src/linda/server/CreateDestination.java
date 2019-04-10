@@ -1,6 +1,7 @@
 package linda.server;
 
 import org.objectweb.joram.client.jms.admin.*;
+
 import org.objectweb.joram.client.jms.*;
 import org.objectweb.joram.client.jms.tcp.*;
 
@@ -27,9 +28,9 @@ public class CreateDestination {
 		jndiCtx.bind("ConnFactory", connFactory);
 		jndiCtx.bind("TopicGlobal", topic);
 		
-		for (int i = 1; i <= 4; i++) {
+		for (int i = 0; i < 4; i++) {
 	        Destination queue = Queue.create(0);
-	        jndiCtx.bind("QueueServeur_"+i, queue);
+	        jndiCtx.bind("Queue_" + i, queue);
 	        queue.setFreeReading();
 	        queue.setFreeWriting();
 	    }

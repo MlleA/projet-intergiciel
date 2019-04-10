@@ -3,9 +3,7 @@
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="/Users/Alice/Linux/TP-JMS/TP-JMS/joram/ship/lib/jms.jar"/>
-	<classpathentry kind="lib" path="/Users/Alice/Linux/TP-JMS/TP-JMS/joram/ship/lib/joram-client.jar"/>
 	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/jms.jar"/>
-	<classpathentry kind="lib" path="/TP-JMS/joram/ship/lib/joram-client.jar"/>
 	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/joram-client.jar"/>
 	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/soap.jar"/>
 	<classpathentry kind="lib" path="/home/john/Documents/2A/Intergiciels/TP-JMS/joram/ship/lib/ow_monolog.jar"/>

@@ -7,6 +7,7 @@ import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.rmi.server.ExportException;
 import java.util.Collection;
 import linda.Callback;
 import linda.Linda;
@@ -29,7 +30,11 @@ public class LindaClient implements Linda {
 	 */
 	public LindaClient(String serverURI) {
 		try {
-			registry = LocateRegistry.createRegistry(4001);
+			try {
+				registry = LocateRegistry.createRegistry(4001);
+			} catch (ExportException e) {
+				registry = LocateRegistry.getRegistry(4001);
+			}
 			lindaServer = (ILindaServer)Naming.lookup(serverURI);
 		} catch (RemoteException | MalformedURLException | NotBoundException e) {
 			e.printStackTrace();

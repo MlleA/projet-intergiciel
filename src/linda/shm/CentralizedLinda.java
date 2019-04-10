@@ -14,7 +14,7 @@ import linda.Tuple;
 /** Shared memory implementation of Linda. */
 public class CentralizedLinda implements Linda {
 	//Choix LinkedList vs ArrayList à justifier dans le compte rendu
-	private LinkedList<Tuple> espacePartage;
+	public LinkedList<Tuple> espacePartage;
 
 	private Lock lock;
 
