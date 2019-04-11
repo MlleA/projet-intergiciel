@@ -175,7 +175,7 @@ public class CentralizedLinda implements Linda {
 		//FUTUR : l'état courrant n'est pas considéré, seuls les tuples ajoutés à présent le sont
 		else if (timing == eventTiming.FUTURE) {
 			if (mode == eventMode.TAKE) {
-				cbRead.put(new AsynchronousCallback(callback), new Object[] { template, mode });
+				cbTake.put(new AsynchronousCallback(callback), new Object[] { template, mode }); //erreur corrigée
 			} 
 			else if(mode == eventMode.READ) {
 				cbRead.put(new AsynchronousCallback(callback), new Object[] { template, mode });
