@@ -11,6 +11,7 @@ import java.rmi.server.ExportException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.Map;
 
 import javax.jms.Connection;
@@ -49,7 +50,7 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 	private  Map<Integer, Tuple> reponses;
 
 	private CentralizedLinda centralizedLinda;
-	
+
 	protected LindaMultiServer(String myName) throws RemoteException {
 		centralizedLinda = new linda.shm.CentralizedLinda();
 		name = myName;
@@ -58,7 +59,7 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 		reponses = new LinkedHashMap<Integer, Tuple>();
 		connectionToDestinations();
 	}
-	
+
 	private  void connectionToDestinations() {
 		try {
 			ic = new InitialContext ();
@@ -84,7 +85,7 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 
 			Session sessionCPrivée = connection.createSession(false,Session.AUTO_ACKNOWLEDGE);
 			MessageConsumer consumerPrivé = sessionCPrivée.createConsumer(destination_privee);
-			
+
 			consumerPrivé.setMessageListener(new ReadQueueListener());
 
 		} catch (Exception ex) {
@@ -124,35 +125,38 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 	@Override
 	public void write(Tuple t) throws RemoteException{
 		centralizedLinda.write(t);
-		
+
 		//On vérifie si on a pas reçu précédemment une demande correspondant à ce tuple
 		for(Map.Entry<Tuple, Object[]> demandes : demandesRecues.entrySet()) {
 			Tuple template = demandes.getKey();
-			
+
 			if (t.matches(template)) {
 				String nom = (String) demandes.getValue()[0];
 				int nbDemande = (int) demandes.getValue()[1];
 				String method = (String) demandes.getValue()[2];
 
-				Tuple reception = null;
-				if (method.equals("TAKE"))
-					reception = centralizedLinda.tryTake(template);
+				Tuple result = null;
+				if (method.contains("TAKE"))
+					result = centralizedLinda.tryTake(template);
 				else
-					reception = centralizedLinda.tryRead(template);
+					result = centralizedLinda.tryRead(template);
 
 				//Informer que l'on possède le tuple correspondant au motif recherché
-				if (reception != null) {
-					responseToServer(nom, reception, nbDemande, method);
+				if (result != null) {
+					responseToServer(nom, result, null, nbDemande, method);
 					demandesRecues.remove(template,demandes.getValue());
 				}
 			}
 		}
 	}
 
-	@Override
-	public Tuple take(Tuple template) throws RemoteException{
+	private Tuple lectureMethods(Tuple template, String method, boolean withTry) {
 		//Recherche locale du tuple correspondant au template
-		Tuple tupleServeurCentral = centralizedLinda.tryTake(template);
+		Tuple tupleServeurCentral = null;
+		if (method.contains("TAKE")) 
+			tupleServeurCentral = centralizedLinda.tryTake(template);
+		else
+			tupleServeurCentral = centralizedLinda.tryRead(template);
 
 		//Envoie sur le topic du template demandé
 		if (tupleServeurCentral == null) {
@@ -162,76 +166,60 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 				demandesFaites.put(nbDemande, template);
 
 				txtMsg = sessionPT.createTextMessage();
-				txtMsg.setText(name + "::" + nbDemande + "::" + template.toString() + "::TAKE");
+				method = withTry ? "TRY" + method : method;
+				txtMsg.setText(name + "::" + nbDemande + "::" + template.toString() + "::" + method);
 				producerTopic.send(txtMsg);
 
 				//attente de la réponse d'un des autres serveurs
 				Tuple result = null;
-				do {
+				//Methode take/read
+				if (!withTry) {
+					do {
+						result = reponses.get(nbDemande);
+					} while (result == null);
+					//Methode tryTake/tryRead
+				} else {
+					boolean getResponse = false;
+					do {
+						getResponse = reponses.containsKey(nbDemande);
+					} while (!getResponse);
+
+					//suppression de la demande et de la réponse
 					result = reponses.get(nbDemande);
-				} while (result == null);
+				}
 
 				//suppression de la demande et de la réponse
 				demandesFaites.remove(nbDemande);
 				reponses.remove(nbDemande);
-				
+
 				return result;
 			} catch (JMSException e) {
 				e.printStackTrace();
 				return null;
 			}
-			
+
 		} else 
 			return tupleServeurCentral;
 	}
 
 	@Override
-	public Tuple read(Tuple template)throws RemoteException {
-		return centralizedLinda.tryRead(template);
+	public Tuple take(Tuple template) throws RemoteException{
+		return lectureMethods(template, "TAKE", false);
+	}
 
-		//if()
+	@Override
+	public Tuple read(Tuple template)throws RemoteException {
+		return lectureMethods(template, "READ", false);
 	}
 
 	@Override
 	public Tuple tryTake(Tuple template)throws RemoteException {
-		//Recherche locale du tuple correspondant au template
-				Tuple tupleServeurCentral = centralizedLinda.tryTake(template);
-
-				//Envoie sur le topic du template demandé
-				if (tupleServeurCentral == null) {
-					TextMessage txtMsg;
-					try {
-						Integer nbDemande = (int) Math.random();
-						demandesFaites.put(nbDemande, template);
-
-						txtMsg = sessionPT.createTextMessage();
-						txtMsg.setText(name + "::" + nbDemande + "::" + template.toString() + "::TAKE");
-						producerTopic.send(txtMsg);
-
-						//attente de la réponse d'un des autres serveurs
-						boolean getResponse = false;
-						do {
-							getResponse = reponses.containsKey(nbDemande);
-						} while (!getResponse);
-
-						//suppression de la demande et de la réponse
-						Tuple result = reponses.get(nbDemande);
-						demandesFaites.remove(nbDemande);
-						reponses.remove(nbDemande);
-						
-						return result;
-					} catch (JMSException e) {
-						e.printStackTrace();
-						return null;
-					}
-					
-				} else 
-					return tupleServeurCentral;
+		return lectureMethods(template, "TAKE", true);
 	}
 
 	@Override
 	public Tuple tryRead(Tuple template)throws RemoteException {
-		return centralizedLinda.tryRead(template);
+		return lectureMethods(template, "READ", true);
 	}
 
 	@Override
@@ -260,6 +248,33 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 		centralizedLinda.debug(prefix);
 	}
 
+	private  void responseToServer(String nameServer, Tuple result, LinkedList<Tuple> results, int nbDemande, String method) {
+		Destination queueServerDest;
+		try {
+			//Envoie du tuple correspondant trouvé au serveur demandant
+			queueServerDest = (Destination)ic.lookup(nameServer);
+			Session sessionP = connection.createSession(false,Session.AUTO_ACKNOWLEDGE);
+			MessageProducer producer = sessionP.createProducer(queueServerDest);
+
+			TextMessage message = sessionP.createTextMessage();
+			if (method.contains("ALL")) {
+				for (int i = 0; i < results.size(); i++) {
+					message.setText(name + "::" + nbDemande + "::" + results.get(i).toString() + "::" + method);
+					producer.send(message);
+				}				
+				message.setText(name + "::" + nbDemande + ":: ::" + method + "END");
+				producer.send(message);
+				
+			} else {
+				String tuple = result == null ? " " : result.toString();
+				message.setText(name + "::" + nbDemande + "::" + tuple + "::" + method);
+				producer.send(message);
+			}
+
+		} catch (NamingException | JMSException e) {
+			e.printStackTrace();
+		}
+	}
 
 	private  class ReadTopicListener implements MessageListener {
 		public void onMessage(Message msg)  {
@@ -273,40 +288,34 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 				Tuple template = linda.Tuple.valueOf(tabSplit[2]);
 				String method = tabSplit[3];
 
-				Tuple reception = null;
-				if (method.equals("TAKE"))
-					reception = centralizedLinda.tryTake(template);
-				else
-					reception = centralizedLinda.tryRead(template);
+				Tuple result = null;
+				LinkedList<Tuple> results = new LinkedList<Tuple>();
+				if (method.contains("TAKE")) {
+					//takeAll
+					if (method.contains("ALL"))
+						results = (LinkedList<Tuple>) centralizedLinda.takeAll(template);
+					else
+						result = centralizedLinda.tryTake(template);
 
-				//Informer que l'on possède le tuple correspondant au motif recherché
-				if (reception != null) 
-					responseToServer(nom, reception, nbDemande, method);
-				else {
+				} else {
+					//readAll
+					if (method.contains("ALL")) 
+						results = (LinkedList<Tuple>) centralizedLinda.readAll(template);
+					else
+						result = centralizedLinda.tryRead(template);
+				}
+
+				//Informer que l'on possède ou pas le tuple correspondant au motif recherché
+				if (result == null && !method.contains("TRY")) {					
 					//on enregistre la demande pour pouvoir y répondre plus tard
 					Object[] infosDemande = {nom, nbDemande, method};
 					demandesRecues.put(template, infosDemande);
 				}
+				responseToServer(nom, result, results, nbDemande, method);
+
 			} catch (Exception ex) {
 				ex.printStackTrace();
 			}
-		}
-	}
-	
-	private  void responseToServer(String nameServer, Tuple reception, int nbDemande, String method) {
-		Destination queueServerDest;
-		try {
-			//Envoie du tuple correspondant trouvé au serveur demandant
-			queueServerDest = (Destination)ic.lookup(nameServer);
-			Session sessionP = connection.createSession(false,Session.AUTO_ACKNOWLEDGE);
-			MessageProducer producer = sessionP.createProducer(queueServerDest);
-
-			TextMessage message = sessionP.createTextMessage();
-			message.setText(name + "::" + nbDemande + "::" + reception.toString() + "::" + method);
-			producer.send(message);
-			
-		} catch (NamingException | JMSException e) {
-			e.printStackTrace();
 		}
 	}
 
@@ -319,14 +328,15 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 				//découpe du message
 				String nom = tabSplit[0];
 				Integer nbDemande = Integer.parseInt(tabSplit[1]);
-				Tuple tuple = linda.Tuple.valueOf(tabSplit[2]);
+				Tuple tuple = null;
+				if (!tabSplit[2].equals(" ")) tuple = linda.Tuple.valueOf(tabSplit[2]);
 				String method = tabSplit[3];
 
 				//On reçoit une réponse mais la demande est déjà clôturée
 				if (demandesFaites.get(nbDemande) == null) {
 					//Si la méthode est Take le serveur répondant a supprimé
 					//inutilement le tuple donc on le recrée
-					if(method.equals("TAKE"))
+					if(method.contains("TAKE") && !method.contains("ALL") && tuple != null)
 						write(tuple);
 				} else 
 					reponses.put(nbDemande, tuple);

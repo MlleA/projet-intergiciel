@@ -19,13 +19,11 @@ public class CentralizedLinda implements Linda {
 	private Lock lock;
 
 	//Première case du tableau = Template ; Deuxième case = eventMode
-	private Map<AsynchronousCallback, Object[]> cbRead;
-	private Map<AsynchronousCallback, Object[]> cbTake;
+	private Map<AsynchronousCallback, Object[]> cbLecture;
 
 	public CentralizedLinda() {
 		espacePartage = new LinkedList<Tuple>();
-		cbRead = new LinkedHashMap<AsynchronousCallback, Object[]>();
-		cbTake = new LinkedHashMap<AsynchronousCallback, Object[]>();
+		cbLecture = new LinkedHashMap<AsynchronousCallback, Object[]>();
 		lock = new ReentrantLock();
 	}
 
@@ -34,19 +32,12 @@ public class CentralizedLinda implements Linda {
 	public void write(Tuple t) {
 		boolean write = true;
 		
-		for(Map.Entry<AsynchronousCallback, Object[]> cbRead : this.cbRead.entrySet()) {
+		for(Map.Entry<AsynchronousCallback, Object[]> cbRead : this.cbLecture.entrySet()) {
 			if (t.matches((Tuple) cbRead.getValue()[0])) {
 				if ((eventMode) cbRead.getValue()[1] == eventMode.TAKE)
 					write = false;
 				cbRead.getKey().call(t);
 			}
-		}
-		for(Map.Entry<AsynchronousCallback, Object[]> cbTake : this.cbTake.entrySet()) {
-			if (t.matches((Tuple) cbTake.getValue()[0])) {
-				if ((eventMode) cbTake.getValue()[1] == eventMode.TAKE)
-					write = false;
-				cbTake.getKey().call(t);
-			} 
 		}
 
 		if (write) {
@@ -150,37 +141,22 @@ public class CentralizedLinda implements Linda {
 	@Override
 	//S’abonner à l’existence/l’apparition d’un tuple correspondant au motif.
 	public void eventRegister(eventMode mode, eventTiming timing, Tuple template, Callback callback) {
-
-		//callback.call() sera invoqué avec le tuple identifié. Le callback n’est déclenché qu’une fois, puis oublié.
-
 		//IMMEDIATE : l'état courrant est considéré
 		if (timing == eventTiming.IMMEDIATE) {
 			if (mode == eventMode.TAKE) {
-				cbTake.put(new AsynchronousCallback(callback), new Object[] { template, mode });
-
 				Tuple tuple = tryTake(template);
 				if (tuple != null) {
 					(new AsynchronousCallback(callback)).call(tuple);
 				}
 			}
 			else if(mode == eventMode.READ) {
-				cbRead.put(new AsynchronousCallback(callback), new Object[] { template, mode });
-
 				Tuple tuple = tryRead(template);
 				if (tuple != null) {
 					(new AsynchronousCallback(callback)).call(tuple);
 				}
 			}
 		}
-		//FUTUR : l'état courrant n'est pas considéré, seuls les tuples ajoutés à présent le sont
-		else if (timing == eventTiming.FUTURE) {
-			if (mode == eventMode.TAKE) {
-				cbTake.put(new AsynchronousCallback(callback), new Object[] { template, mode }); //erreur corrigée
-			} 
-			else if(mode == eventMode.READ) {
-				cbRead.put(new AsynchronousCallback(callback), new Object[] { template, mode });
-			}
-		}
+		cbLecture.put(new AsynchronousCallback(callback), new Object[] { template, mode });
 	}
 
 	@Override
@@ -194,16 +170,8 @@ public class CentralizedLinda implements Linda {
 		}
 
 		System.out.println(prefix + " ---- Callback enregistrés ---- \n");
-		if (!cbRead.entrySet().isEmpty()) System.out.println(prefix + " Callback Read : \n");
-		for(Map.Entry<AsynchronousCallback, Object[]> cb : cbRead.entrySet()) {
-			Tuple template = (Tuple) cb.getValue()[0];
-			eventMode eventMode = (eventMode) cb.getValue()[1];
-			
-			System.out.println(prefix + " eventMode : " + eventMode.name() + " template : " + template.toString());
-		}
-
-		if (!cbTake.entrySet().isEmpty()) System.out.println("\n" + prefix + " Callback Take : \n");
-		for(Map.Entry<AsynchronousCallback, Object[]> cb : cbTake.entrySet()) {
+		if (!cbLecture.entrySet().isEmpty()) System.out.println(prefix + " Callbacks : \n");
+		for(Map.Entry<AsynchronousCallback, Object[]> cb : cbLecture.entrySet()) {
 			Tuple template = (Tuple) cb.getValue()[0];
 			eventMode eventMode = (eventMode) cb.getValue()[1];
 			
@@ -213,7 +181,4 @@ public class CentralizedLinda implements Linda {
 		System.out.println(prefix + " [FIN DEBUG] \n");
 
 	}
-
-	// TO BE COMPLETED
-
 }
