@@ -1,5 +1,7 @@
 package linda.test;
 
+import java.util.LinkedList;
+
 import linda.*;
 
 public class TestMultiServer1 {
@@ -13,21 +15,32 @@ public class TestMultiServer1 {
         new Thread() {
             public void run() {
                 try {
-                    Thread.sleep(2);
+                    Thread.sleep(2000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
+                Tuple t3 = new Tuple(4, "foo2");
+                System.out.println("(2) write: " + t3);
+                linda.write(t3);
+                
                 Tuple motif = new Tuple(Integer.class, String.class);
-                Tuple res = linda.tryTake(motif);
-                System.out.println("(1) Resultat trytake:" + res);
+                
+                LinkedList<Tuple> res = (LinkedList<Tuple>) linda.readAll(motif);
+                System.out.println("(1) Resultat readall:");
+                res.forEach(t -> System.out.println("(1)" + t));
                 linda.debug("(1)");
+                
+                res = (LinkedList<Tuple>) linda.readAll(motif);
+                System.out.println("(11) Resultat readall:");
+                res.forEach(t -> System.out.println("(11)" + t));
+                linda.debug("(11)");
             }
         }.start();
                 
         new Thread() {
             public void run() {
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(1);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }

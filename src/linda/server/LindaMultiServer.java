@@ -48,6 +48,8 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 	private  Map<Integer, Tuple> demandesFaites;
 	private  Map<Tuple, Object[]> demandesRecues;
 	private  Map<Integer, Tuple> reponses;
+	private  Map<Integer, LinkedList<Tuple>> reponsesAll;
+	private  Map<Integer, LinkedList<String>> serveursRepondant;
 
 	private CentralizedLinda centralizedLinda;
 
@@ -57,6 +59,8 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 		demandesFaites = new LinkedHashMap<Integer, Tuple>();
 		demandesRecues = new LinkedHashMap<Tuple, Object[]>();
 		reponses = new LinkedHashMap<Integer, Tuple>();
+		reponsesAll = new LinkedHashMap<Integer, LinkedList<Tuple>>();
+		serveursRepondant = new LinkedHashMap<Integer, LinkedList<String>>();
 		connectionToDestinations();
 	}
 
@@ -120,6 +124,7 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 		}
 
 		registry.bind("LindaServer" + i,server);
+		System.out.println("LindaServer" + i);
 	}
 
 	@Override
@@ -221,15 +226,51 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 	public Tuple tryRead(Tuple template)throws RemoteException {
 		return lectureMethods(template, "READ", true);
 	}
+	
+	private LinkedList<Tuple> lectureAllMethods(Tuple template, String method, LinkedList<Tuple> myTuples) {
+		TextMessage txtMsg;
+		try {
+			Integer nbDemande = (int) Math.random();
+			serveursRepondant.put(nbDemande, new LinkedList<String>());
+			reponsesAll.put(nbDemande, new LinkedList<Tuple>());
+
+			txtMsg = sessionPT.createTextMessage();
+			txtMsg.setText(name + "::" + nbDemande + "::" + template.toString() + "::" + method);
+			producerTopic.send(txtMsg);
+			System.out.println("TAKEALL ENVOYE");
+
+			//laisser le temps à tous les serveurs de répondre
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+
+			LinkedList<String> serveurs; 
+			do {
+				serveurs = serveursRepondant.get(nbDemande);
+			} while (!serveurs.isEmpty());
+
+			myTuples.addAll(reponsesAll.get(nbDemande));
+			return myTuples;
+		} catch (JMSException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
 
 	@Override
 	public Collection<Tuple> takeAll(Tuple template) throws RemoteException {
-		return centralizedLinda.takeAll(template);
+		LinkedList<Tuple> myTuples = (LinkedList<Tuple>) centralizedLinda.takeAll(template);
+
+		return lectureAllMethods(template, "TAKEALL", myTuples);
 	}
 
 	@Override
 	public Collection<Tuple> readAll(Tuple template) throws RemoteException {
-		return centralizedLinda.readAll(template);
+		LinkedList<Tuple> myTuples = (LinkedList<Tuple>) centralizedLinda.readAll(template);
+
+		return lectureAllMethods(template, "READALL", myTuples);
 	}
 
 	@Override
@@ -264,7 +305,8 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 				}				
 				message.setText(name + "::" + nbDemande + ":: ::" + method + "END");
 				producer.send(message);
-				
+				System.out.println("REPONSE AU TAKEALL");
+
 			} else {
 				String tuple = result == null ? " " : result.toString();
 				message.setText(name + "::" + nbDemande + "::" + tuple + "::" + method);
@@ -290,28 +332,32 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 
 				Tuple result = null;
 				LinkedList<Tuple> results = new LinkedList<Tuple>();
-				if (method.contains("TAKE")) {
-					//takeAll
-					if (method.contains("ALL"))
-						results = (LinkedList<Tuple>) centralizedLinda.takeAll(template);
-					else
-						result = centralizedLinda.tryTake(template);
 
-				} else {
-					//readAll
-					if (method.contains("ALL")) 
-						results = (LinkedList<Tuple>) centralizedLinda.readAll(template);
-					else
-						result = centralizedLinda.tryRead(template);
-				}
+				if (!nom.equals(name)) {
+					if (method.contains("TAKE")) {
+						//takeAll
+						if (method.contains("ALL")) {
+							results = (LinkedList<Tuple>) centralizedLinda.takeAll(template);
+							System.out.println("TAKEALL RECU");
+						} else
+							result = centralizedLinda.tryTake(template);
 
-				//Informer que l'on possède ou pas le tuple correspondant au motif recherché
-				if (result == null && !method.contains("TRY")) {					
-					//on enregistre la demande pour pouvoir y répondre plus tard
-					Object[] infosDemande = {nom, nbDemande, method};
-					demandesRecues.put(template, infosDemande);
+					} else {
+						//readAll
+						if (method.contains("ALL")) 
+							results = (LinkedList<Tuple>) centralizedLinda.readAll(template);
+						else
+							result = centralizedLinda.tryRead(template);
+					}
+
+					//Informer que l'on possède ou pas le tuple correspondant au motif recherché
+					if (result == null && !method.contains("TRY") && !method.contains("ALL")) {					
+						//on enregistre la demande pour pouvoir y répondre plus tard
+						Object[] infosDemande = {nom, nbDemande, method};
+						demandesRecues.put(template, infosDemande);
+					}
+					responseToServer(nom, result, results, nbDemande, method);
 				}
-				responseToServer(nom, result, results, nbDemande, method);
 
 			} catch (Exception ex) {
 				ex.printStackTrace();
@@ -338,7 +384,16 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 					//inutilement le tuple donc on le recrée
 					if(method.contains("TAKE") && !method.contains("ALL") && tuple != null)
 						write(tuple);
-				} else 
+
+					//on reçoit les réponses des takeAll/readAll
+				}
+
+				if (method.contains("ALL") && !method.contains("END")) {
+					serveursRepondant.get(nbDemande).add(nom);
+					reponsesAll.get(nbDemande).add(tuple);
+				} else if (method.contains("ALL") && method.contains("END")) {
+					serveursRepondant.get(nbDemande).remove(nom);
+				} else
 					reponses.put(nbDemande, tuple);
 
 			} catch (Exception ex) {
