@@ -40,6 +40,7 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 
 	private static String name;
 	private static InitialContext ic;
+	private static LindaMultiServer me;
 	private  MessageProducer producerTopic;
 	private  MessageConsumer consumerTopic;
 	private  Session sessionPT;
@@ -50,6 +51,7 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 	private  Map<Integer, Tuple> reponses;
 	private  Map<Integer, LinkedList<Tuple>> reponsesAll;
 	private  Map<Integer, LinkedList<String>> serveursRepondant;
+	private  LinkedList<String[]> eventRegistered;
 
 	private CentralizedLinda centralizedLinda;
 
@@ -61,6 +63,7 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 		reponses = new LinkedHashMap<Integer, Tuple>();
 		reponsesAll = new LinkedHashMap<Integer, LinkedList<Tuple>>();
 		serveursRepondant = new LinkedHashMap<Integer, LinkedList<String>>();
+		eventRegistered =  new LinkedList<String[]>();
 		connectionToDestinations();
 	}
 
@@ -115,7 +118,7 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 		ic.bind("Server_" + i, serverLibre);
 
 		//Création de l'instance du server et mise en disposition à distance
-		LindaMultiServer server = new LindaMultiServer("Server_" + i);
+		me = new LindaMultiServer("Server_" + i);
 		Registry registry;
 		try {
 			registry = LocateRegistry.createRegistry(4000);
@@ -123,13 +126,20 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 			registry = LocateRegistry.getRegistry(4000);
 		}
 
-		registry.bind("LindaServer" + i,server);
+		registry.bind("LindaServer" + i,me);
 		System.out.println("LindaServer" + i);
 	}
 
 	@Override
 	public void write(Tuple t) throws RemoteException{
-		centralizedLinda.write(t);
+		boolean write = true;
+		
+		for (int i = 0; i < eventRegistered.size(); i++) {
+			Tuple tuple = linda.Tuple.valueOf(eventRegistered.get(i)[0]);
+			if (t.matches(tuple) && eventRegistered.get(i)[0].contains("TAKE"))
+				write = false;
+		}
+		if (write) centralizedLinda.write(t);
 
 		//On vérifie si on a pas reçu précédemment une demande correspondant à ce tuple
 		for(Map.Entry<Tuple, Object[]> demandes : demandesRecues.entrySet()) {
@@ -152,6 +162,16 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 					demandesRecues.remove(template,demandes.getValue());
 				}
 			}
+		}
+
+		TextMessage txtMsg;
+		try {
+			Integer nbDemande = (int) Math.random();
+			txtMsg = sessionPT.createTextMessage();
+			txtMsg.setText(name + "::" + nbDemande + "::" + t.toString() + "::" + "WRITE");
+			producerTopic.send(txtMsg);
+		} catch (JMSException e) {
+			e.printStackTrace();
 		}
 	}
 
@@ -226,7 +246,7 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 	public Tuple tryRead(Tuple template)throws RemoteException {
 		return lectureMethods(template, "READ", true);
 	}
-	
+
 	private LinkedList<Tuple> lectureAllMethods(Tuple template, String method, LinkedList<Tuple> myTuples) {
 		TextMessage txtMsg;
 		try {
@@ -237,7 +257,6 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 			txtMsg = sessionPT.createTextMessage();
 			txtMsg.setText(name + "::" + nbDemande + "::" + template.toString() + "::" + method);
 			producerTopic.send(txtMsg);
-			System.out.println("TAKEALL ENVOYE");
 
 			//laisser le temps à tous les serveurs de répondre
 			try {
@@ -277,9 +296,25 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 	public void eventRegister(eventMode mode, eventTiming timing, Tuple template, String remoteCallback) throws RemoteException {	
 		IRemoteCallback rc;
 		try {
+			Integer nbDemande = (int) Math.random();
+			demandesFaites.put(nbDemande, template);
+			String method = "EVENTREGISTER";
+			method = mode == eventMode.TAKE ? method + "_TAKE" : method;
+			
+			TextMessage txtMsg = sessionPT.createTextMessage();
+			txtMsg.setText(name + "::" + nbDemande + "::" + template.toString() + "::" + method);
+			producerTopic.send(txtMsg);
+			
+			//récupérer les tuples correspondant chez les autres serveurs car 
+			//en immediate on essaie de prendre ou de lire immédiatement
+			if (timing == eventTiming.IMMEDIATE) {
+				Tuple result = lectureMethods(template, "TAKE", false);
+				me.centralizedLinda.write(result);
+			}
+
 			rc = (IRemoteCallback)Naming.lookup(remoteCallback);
 			centralizedLinda.eventRegister(mode, timing, template, new RemoteCallbackToCallback(rc));
-		} catch (MalformedURLException | NotBoundException e) {
+		} catch (MalformedURLException | NotBoundException | JMSException e) {
 			e.printStackTrace();
 		}
 	}
@@ -305,8 +340,6 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 				}				
 				message.setText(name + "::" + nbDemande + ":: ::" + method + "END");
 				producer.send(message);
-				System.out.println("REPONSE AU TAKEALL");
-
 			} else {
 				String tuple = result == null ? " " : result.toString();
 				message.setText(name + "::" + nbDemande + "::" + tuple + "::" + method);
@@ -334,20 +367,27 @@ public class LindaMultiServer extends UnicastRemoteObject implements ILindaServe
 				LinkedList<Tuple> results = new LinkedList<Tuple>();
 
 				if (!nom.equals(name)) {
-					if (method.contains("TAKE")) {
+					if (method.contains("EVENTREGISTER")) {
+						String[] event = new String[] { tabSplit[2], method };
+						eventRegistered.add(event);
+					} else if (method.contains("TAKE")) {
 						//takeAll
-						if (method.contains("ALL")) {
+						if (method.contains("ALL"))
 							results = (LinkedList<Tuple>) centralizedLinda.takeAll(template);
-							System.out.println("TAKEALL RECU");
-						} else
+						else
 							result = centralizedLinda.tryTake(template);
 
-					} else {
+					} else if (method.contains("READ")) {
 						//readAll
 						if (method.contains("ALL")) 
 							results = (LinkedList<Tuple>) centralizedLinda.readAll(template);
 						else
 							result = centralizedLinda.tryRead(template);
+					} else if (method.contains("WRITE")) {
+						//Déclencher les callback si nécessaire sans réécrire le tuple
+						//qui a déja été écrit par un autre serveur
+						me.centralizedLinda.write(template);
+						me.centralizedLinda.take(template);
 					}
 
 					//Informer que l'on possède ou pas le tuple correspondant au motif recherché
